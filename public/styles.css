@@ -1,41 +1,11 @@
-/* ── Reset & base ─────────────────────────────────────────────────────────── */
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-/* ── Albert CSS design tokens (light) ────────────────────────────────────── */
+/* ── Game palette (mapped to albertcss tokens) ───────────────────────────── */
 
 :root {
-  /* Albert palette */
-  --ab-primary:   #005b99;
-  --ab-secondary: #993d00;
-  --ab-green:     #036803;
-  --ab-info:      #03607d;
-  --ab-red:       #b60202;
-  --ab-warn:      #695802;
-  --ab-silver:    #ebebef;
-  --ab-grey900:   #363640;
-  --ab-grey800:   #4a4a4e;
-  --ab-grey700:   #5e5e62;
-  --ab-grey600:   #727276;
-  --ab-grey500:   #868690;
-  --ab-grey400:   #9b9b9f;
-  --ab-grey300:   #afafb3;
-  --ab-grey200:   #c3c3c7;
-  --ab-grey100:   #d7d7db;
-  --ab-bodyBg:    #fff;
-  --ab-headerBg:  #ebebef;
-
-  /* Font stacks */
-  --font-body:    system-ui, sans-serif;
-  --font-heading: Raleway, "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
-
-  /* ── Game palette (mapped to albert tokens) ── */
-
-  --bg:            var(--ab-silver);     /* page background */
-  --surface:       var(--ab-bodyBg);     /* board / cards */
-  --border-light:  var(--ab-grey100);    /* thin cell lines */
-  --border-box:    var(--ab-grey700);    /* 3×3 box dividers */
-  --border-outer:  var(--ab-grey900);    /* board outer edge */
+  --bg:            var(--silver);     /* page background */
+  --surface:       var(--bodyBg);     /* board / cards */
+  --border-light:  var(--grey100);    /* thin cell lines */
+  --border-box:    var(--grey700);    /* 3×3 box dividers */
+  --border-outer:  var(--grey900);    /* board outer edge */
 
   /* Derived tints (primary #005b99 blended toward white) */
   --cell-peer:     #d9e7f0;   /* same row/col/box — ~85% white */
@@ -45,17 +15,16 @@
   /* red #b60202 blended toward white */
   --cell-conflict: #f6e1e1;   /* conflict */
 
-  --num-given:    var(--ab-grey900);   /* clue numbers */
-  --num-user:     var(--ab-primary);   /* player numbers */
-  --num-conflict: var(--ab-red);       /* conflict numbers */
-  --num-note:     var(--ab-grey500);   /* pencil marks */
+  --num-given:    var(--grey900);   /* clue numbers */
+  --num-user:     var(--primary);   /* player numbers */
+  --num-conflict: var(--red);       /* conflict numbers */
+  --num-note:     var(--grey500);   /* pencil marks */
 
-  --primary:       var(--ab-primary);
   --primary-hover: #004070;
-  --btn-bg:        var(--ab-bodyBg);
-  --btn-border:    var(--ab-grey100);
+  --btn-bg:        var(--bodyBg);
+  --btn-border:    var(--grey100);
   --btn-hover:     #d9e7f0;
-  --btn-active:    var(--ab-primary);
+  --btn-active:    var(--primary);
 
   --focus-shadow: rgba(0, 91, 153, 0.4);
 
@@ -73,23 +42,6 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ab-primary:  #4cb5fa;
-    --ab-red:      #f49090;
-    --ab-warn:     #f9d615;
-    --ab-green:    #09c809;
-    --ab-silver:   #363640;
-    --ab-grey900:  #ebebef;
-    --ab-grey800:  #d7d7db;
-    --ab-grey700:  #c3c3c7;
-    --ab-grey600:  #afafb3;
-    --ab-grey500:  #9b9b9f;
-    --ab-grey400:  #868690;
-    --ab-grey300:  #727276;
-    --ab-grey200:  #5e5e62;
-    --ab-grey100:  #4a4a4e;
-    --ab-bodyBg:   #222;
-    --ab-headerBg: #222;
-
     --bg:           #000;
     --surface:      #222;
     --border-light: #4a4a4e;
@@ -101,26 +53,21 @@
     --cell-same-num: #272310;
     --cell-conflict: #391010;
 
-    --num-given:    #ebebef;
-    --num-user:     #4cb5fa;
-    --num-conflict: #f49090;
-
-    --primary:       #4cb5fa;
     --primary-hover: #7fcdfb;
     --btn-bg:        #2d2d31;
     --btn-border:    #4a4a4e;
     --btn-hover:     #132130;
-    --btn-active:    #4cb5fa;
-
-    --focus-shadow: rgba(76, 181, 250, 0.4);
-    --shadow:       0 0.125rem 0.75rem rgba(0, 0, 0, 0.4);
+    --focus-shadow:  rgba(76, 181, 250, 0.4);
+    --shadow:        0 0.125rem 0.75rem rgba(0, 0, 0, 0.4);
   }
+  .timer      { color: var(--grey300); }
+  .action-btn { color: var(--grey300); }
+  .modal-icon { background: #0e2b0e; color: var(--green); }
 }
 
 /* ── Base ────────────────────────────────────────────────────────────────── */
 
 body {
-  font-family: var(--font-body);
   background: var(--bg);
   color: var(--num-given);
   min-height: 100dvh;
@@ -139,16 +86,14 @@ body {
 
 /* ── Header ──────────────────────────────────────────────────────────────── */
 
-.header {
+.game-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
 .logo {
-  font-family: var(--font-heading);
   font-size: 1.875rem;
-  font-weight: 800;
   letter-spacing: -1px;
   color: var(--primary);
 }
@@ -161,18 +106,14 @@ body {
 
 .mistakes {
   font-size: 0.875rem;
-  color: var(--ab-grey600);
+  color: var(--grey600);
 }
 
 .timer {
   font-size: 1.125rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--ab-grey700);
-}
-
-@media (prefers-color-scheme: dark) {
-  .timer { color: var(--ab-grey300); }
+  color: var(--grey700);
 }
 
 /* ── Difficulty nav ──────────────────────────────────────────────────────── */
@@ -192,10 +133,9 @@ body {
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  font-family: var(--font-body);
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--ab-grey600);
+  color: var(--grey600);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
@@ -259,10 +199,10 @@ body {
   display: none;
 }
 
-.cell.given     .cell-value { color: var(--num-given); font-weight: 700; }
+.cell.given       .cell-value { color: var(--num-given); font-weight: 700; }
 .cell:not(.given) .cell-value { color: var(--num-user); }
-.cell.conflict  .cell-value { color: var(--num-conflict); }
-.cell.has-value .cell-value { display: block; }
+.cell.conflict    .cell-value { color: var(--num-conflict); }
+.cell.has-value   .cell-value { display: block; }
 
 /* Notes */
 .cell-notes {
@@ -313,10 +253,9 @@ body {
   background: var(--btn-bg);
   border: 0.125rem solid var(--btn-border);
   border-radius: var(--radius);
-  font-family: var(--font-body);
   font-size: 0.75rem;
   font-weight: 500;
-  color: var(--ab-grey700);
+  color: var(--grey700);
   cursor: pointer;
   box-shadow: var(--shadow);
   transition: background 0.12s, color 0.12s, border-color 0.12s;
@@ -336,10 +275,6 @@ body {
   border-color: var(--primary);
 }
 
-@media (prefers-color-scheme: dark) {
-  .action-btn { color: var(--ab-grey300); }
-}
-
 /* Numpad */
 .numpad {
   display: grid;
@@ -352,7 +287,6 @@ body {
   background: var(--btn-bg);
   border: 0.125rem solid var(--btn-border);
   border-radius: var(--radius-sm);
-  font-family: var(--font-body);
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--num-given);
@@ -374,7 +308,6 @@ body {
   color: #fff;
   border: none;
   border-radius: var(--radius);
-  font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -414,13 +347,13 @@ body {
 
 .loading-box p {
   font-size: 0.875rem;
-  color: var(--ab-grey600);
+  color: var(--grey600);
 }
 
 .spinner {
   width: 2.25rem;
   height: 2.25rem;
-  border: 0.25rem solid var(--ab-grey100);
+  border: 0.25rem solid var(--grey100);
   border-top-color: var(--primary);
   border-radius: var(--radius-full);
   animation: spin 0.7s linear infinite;
@@ -447,7 +380,7 @@ body {
   width: 3.5rem;
   height: 3.5rem;
   background: #c8e8c8;
-  color: var(--ab-green);
+  color: var(--green);
   border-radius: var(--radius-full);
   font-size: 1.75rem;
   display: flex;
@@ -456,19 +389,14 @@ body {
   margin-bottom: 0.25rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  .modal-icon { background: #0e2b0e; color: var(--ab-green); }
-}
-
 .modal h2 {
-  font-family: var(--font-heading);
   font-size: 1.5rem;
-  font-weight: 700;
+  margin: 0;
 }
 
 .solve-stats {
   font-size: 0.875rem;
-  color: var(--ab-grey600);
+  color: var(--grey600);
   margin-bottom: 0.5rem;
 }
 

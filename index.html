@@ -1,18 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sudoku</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    (() => !window.location.pathname.endsWith('/') && window.location.replace(window.location.href + '/'))();
+  </script>
+
+  <link rel="stylesheet" href="https://albertcss.craigmcn.com/v0.15.0/css/albert.css" />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://kit.fontawesome.com/87b0bcd87f.js" crossorigin="anonymous"></script>
 </head>
+
 <body>
   <div id="app">
-    <header class="header">
+    <header class="game-header">
       <h1 class="logo">Sudoku</h1>
       <div class="header-right">
         <span id="mistakes" class="mistakes">Mistakes: 0</span>
@@ -77,4 +82,5 @@
 
   <script type="module" src="/src/main.ts"></script>
 </body>
+
 </html>
