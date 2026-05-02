@@ -42,11 +42,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:           #000;
-    --surface:      #222;
-    --border-light: #4a4a4e;
-    --border-box:   #c3c3c7;
-    --border-outer: #ebebef;
+    --bg:      #000;
+    --surface: #222;
 
     --cell-peer:     #132130;
     --cell-selected: #1b3347;
@@ -54,9 +51,8 @@
     --cell-conflict: #391010;
 
     --btn-bg:    #2d2d31;
-    --btn-border: #4a4a4e;
-    --btn-hover:  #132130;
-    --shadow:     0 0.125rem 0.75rem rgba(0, 0, 0, 0.4);
+    --btn-hover: #132130;
+    --shadow:    0 0.125rem 0.75rem rgba(0, 0, 0, 0.4);
   }
   .timer      { color: var(--grey300); }
   .action-btn { color: var(--grey300); }
