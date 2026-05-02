@@ -64,4 +64,4 @@ yarn test:run
 - **Raleway font-weight reduced to 600** — albertcss only loads weights 200 + 600; removed the separate Google Fonts link rather than loading additional weights
 
 **Outstanding:**
-- Nothing. Project is fully standardized and deployed.
+- **SRI for albertcss CDN link** — blocked until albertcss publishes a hash or the CDN supports it. The albertcss CDN (`albertcss.craigmcn.com`) does not currently serve an `integrity` attribute or expose a hash for the stylesheet, so `integrity`/`crossorigin` cannot be added to the `<link>` yet. Resume when albertcss is updated.

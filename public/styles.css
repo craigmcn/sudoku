@@ -20,13 +20,13 @@
   --num-conflict: var(--red);       /* conflict numbers */
   --num-note:     var(--grey500);   /* pencil marks */
 
-  --primary-hover: #004070;
+  --primary-hover: var(--primaryActive);
   --btn-bg:        var(--bodyBg);
   --btn-border:    var(--grey100);
   --btn-hover:     #d9e7f0;
   --btn-active:    var(--primary);
 
-  --focus-shadow: rgba(0, 91, 153, 0.4);
+  --focus-shadow: var(--focusShadow);
 
   --cell-size:   3.5rem;                       /* 56px */
   --radius:      0.25rem;                      /* 4px  — base */
@@ -53,12 +53,10 @@
     --cell-same-num: #272310;
     --cell-conflict: #391010;
 
-    --primary-hover: #7fcdfb;
-    --btn-bg:        #2d2d31;
-    --btn-border:    #4a4a4e;
-    --btn-hover:     #132130;
-    --focus-shadow:  rgba(76, 181, 250, 0.4);
-    --shadow:        0 0.125rem 0.75rem rgba(0, 0, 0, 0.4);
+    --btn-bg:    #2d2d31;
+    --btn-border: #4a4a4e;
+    --btn-hover:  #132130;
+    --shadow:     0 0.125rem 0.75rem rgba(0, 0, 0, 0.4);
   }
   .timer      { color: var(--grey300); }
   .action-btn { color: var(--grey300); }
