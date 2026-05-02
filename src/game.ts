@@ -42,7 +42,6 @@ function takeSnapshot(state: GameState): Snapshot {
   };
 }
 
-// Returns the coordinates of all 20 peer cells (same row, col, and box).
 export function getPeerCoords(row: number, col: number): Array<[number, number]> {
   const peers: Array<[number, number]> = [];
   for (let c = 0; c < 9; c++) if (c !== col) peers.push([row, c]);
@@ -190,6 +189,7 @@ export function applyHint(state: GameState): GameState {
   const { selected, given, solution } = state;
   if (!selected) return state;
   const { row, col } = selected;
+  // No-op if the cell is already correctly filled (covers given cells)
   if (given[row][col] && state.userBoard[row][col] === solution[row][col]) return state;
 
   const snapshot = takeSnapshot(state);

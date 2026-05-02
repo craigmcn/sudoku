@@ -68,8 +68,12 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
 // ---------------------------------------------------------------------------
 
 describe('getPeerCoords', () => {
-  it('returns exactly 20 peers', () => {
+  it('returns exactly 20 peers for a corner cell', () => {
     expect(getPeerCoords(0, 0)).toHaveLength(20)
+  })
+
+  it('returns exactly 20 peers for a center cell', () => {
+    expect(getPeerCoords(4, 4)).toHaveLength(20)
   })
 
   it('does not include the cell itself', () => {
@@ -148,6 +152,8 @@ describe('erasePeerNotes', () => {
   it('clears the bit for the digit in the same 3×3 box', () => {
     const notes = erasePeerNotes(notesWithBit(1 << 3), 0, 0, 4)
     expect(notes[1][1] & (1 << 3)).toBe(0)
+    expect(notes[1][2] & (1 << 3)).toBe(0)
+    expect(notes[2][1] & (1 << 3)).toBe(0)
     expect(notes[2][2] & (1 << 3)).toBe(0)
   })
 
@@ -203,6 +209,13 @@ describe('enterNumber', () => {
   it('toggles a note in notes mode', () => {
     const s = makeState({ selected: { row: 0, col: 2 }, notesMode: true })
     expect(enterNumber(s, 3).notes[0][2] & (1 << 2)).toBeTruthy()
+  })
+
+  it('clears the digit from peer notes when the correct number is entered', () => {
+    const notes = emptyNotes()
+    notes[0][5] = 1 << 3 // digit 4 noted at a row peer of (0,2)
+    const s = makeState({ selected: { row: 0, col: 2 }, notes })
+    expect(enterNumber(s, 4).notes[0][5] & (1 << 3)).toBe(0)
   })
 })
 
