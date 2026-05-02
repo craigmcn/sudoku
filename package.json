@@ -1,14 +1,42 @@
 {
   "name": "sudoku",
   "version": "1.0.0",
+  "description": "A browser-based Sudoku game",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "mkdir -p dist && esbuild src/main.ts --bundle --outfile=dist/bundle.js --minify && cp public/index.html dist/index.html && cp public/styles.css dist/styles.css",
-    "dev": "mkdir -p dist && cp public/index.html dist/index.html && cp public/styles.css dist/styles.css && esbuild src/main.ts --bundle --outfile=dist/bundle.js --watch --servedir=dist",
-    "typecheck": "tsc --noEmit"
+    "dev": "vite",
+    "build": "vite build",
+    "build:netlify": "vite build --config vite.config.netlify.ts",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ./src",
+    "lint:fix": "eslint ./src --fix",
+    "format": "prettier --write .",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "prepare": "husky"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/craigmcn/sudoku.git"
+  },
+  "author": "Craig McNaughton",
+  "license": "GPL-3.0-or-later",
   "devDependencies": {
-    "esbuild": "^0.24.0",
-    "typescript": "^5.7.0"
-  }
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
+    "@vitest/coverage-v8": "^4.1.5",
+    "@vitest/eslint-plugin": "^1.6.15",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.5.0",
+    "husky": "^9.1.7",
+    "prettier": "^3.8.3",
+    "typescript": "^5.7.0",
+    "vite": "^8.0.10",
+    "vitest": "^4.1.5"
+  },
+  "packageManager": "yarn@4.14.1"
 }
