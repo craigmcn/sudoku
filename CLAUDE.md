@@ -29,6 +29,8 @@ yarn test:run
 - **Unique-solution guarantee** — `countSolutions(puzzle, 2)` is called after each removal during generation; cells are only removed when exactly one solution remains.
 - **Undo does not re-increment mistakes** — snapshots capture `mistakes` at the time of the move, so undoing a wrong entry also restores the mistake count.
 - **Solver tests cover `isValid` only** — `solve` and `countSolutions` are backtracking algorithms that are too slow to run against constrained boards in unit tests.
+- **`getPeerCoords` deduplicates row/col/box** — box loop uses `r !== row && c !== col` to avoid duplicating cells already covered by the row and column sweeps (20 peers, not 24).
+- **Yarn 4 standalone project** — an empty `yarn.lock` at the project root is required because `~/package.json` exists with a `packageManager` field; without it Yarn treats the project as a sub-workspace.
 
 ## Fonts & icons
 
@@ -42,14 +44,17 @@ yarn test:run
 - Node 24 (`.nvmrc`)
 - Yarn 4 (`.yarnrc.yml`, `nodeLinker: node-modules`, empty `yarn.lock` to declare standalone project)
 - Vite 8 migration (`vite.config.ts`, `index.html` at root, `public/styles.css` served via Vite publicDir)
+- `build:netlify` script + `vite.config.netlify.ts` (outputs to `netlify/` and `netlify/sudoku/`)
 - ESLint 9 (`eslint.config.mjs`, `@typescript-eslint`, `no-console: warn`, `eslint-config-prettier`)
-- Prettier (`.prettierrc`, `yarn format`, `.vscode/settings.json` with `formatOnSave`)
-- Vitest + tests (`src/solver.test.ts` for `isValid`, `src/game.test.ts` for all game state mutations)
+- Prettier (`.prettierrc` with `endOfLine: lf`, `yarn format`, `.vscode/settings.json` with `formatOnSave`)
+- `.editorconfig` (utf-8, LF, 2-space indent, final newline — consistent with Prettier)
+- Vitest + tests (35 tests, ~190ms): `src/solver.test.ts` covers `isValid`; `src/game.test.ts` covers all state mutations plus extracted helpers
+- game.ts refactor: extracted `getPeerCoords`, `toggleNote`, `erasePeerNotes` (exported, tested); `takeSnapshot` (unexported, removes duplication); `enterNumber` and `getConflicts` simplified
 - Husky pre-commit hook (`yarn lint && yarn test:run`)
 - CI (`.github/workflows/test.yml`: lint → build → test:coverage on push/PR)
-- CODEOWNERS (`.github/CODEOWNERS`)
+- CODEOWNERS (`.github/CODEOWNERS`: `* @craigmcn`)
 - README
+- Branch protection on `main`: PR required, 1 approval, dismiss stale reviews, require code owner review, `test` status check required, no force-push/deletion, `enforce_admins: false`
 
-**Deferred:**
-- Branch protection — set via GitHub UI
-- Netlify config (`netlify.toml` lives in `craigmcnaughton` repo, update pending)
+**Outstanding:**
+- Netlify config — `netlify.toml` lives in `craigmcnaughton` repo; needs `yarn build:netlify` as build command and updated publish dir (`netlify/sudoku`)
