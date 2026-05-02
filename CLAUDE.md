@@ -34,7 +34,7 @@ yarn test:run
 
 ## Fonts & icons
 
-- Raleway (700, 800) via Google Fonts
+- Raleway (600) via albertcss — loaded as part of `albert.css`
 - FontAwesome (sharp/light kit `87b0bcd87f`) for toolbar icons (undo, erase, pencil, lightbulb, checkmark)
 
 ## Progress (2026-05-02)
@@ -55,6 +55,13 @@ yarn test:run
 - CODEOWNERS (`.github/CODEOWNERS`: `* @craigmcn`)
 - README
 - Branch protection on `main`: PR required, 1 approval, dismiss stale reviews, require code owner review, `test` status check required, no force-push/deletion, `enforce_admins: false`
+- albertcss v0.15.0 integration: CDN `<link>` in `index.html`; `public/styles.css` stripped to game-only declarations (~85 lines removed)
+
+**Key decisions — albertcss integration:**
+- **CDN `<link>` over vendoring** — consistent with existing Google Fonts / FontAwesome CDN pattern; albertcss is the author's own library so the CDN is authoritative
+- **`--ab-*` prefix dropped** — game tokens now reference albertcss vars directly (e.g. `var(--primary)`, `var(--grey900)`); dark mode colour flipping is fully delegated to albertcss
+- **`.header` renamed to `.game-header`** — avoids collision with albertcss's `.header` component (site nav grid), keeping both stylesheets independent
+- **Raleway font-weight reduced to 600** — albertcss only loads weights 200 + 600; removed the separate Google Fonts link rather than loading additional weights
 
 **Outstanding:**
-- Netlify config — `netlify.toml` lives in `craigmcnaughton` repo; needs `yarn build:netlify` as build command and updated publish dir (`netlify/sudoku`)
+- **SRI for albertcss CDN link** — blocked until albertcss publishes a hash or the CDN supports it. The albertcss CDN (`albertcss.craigmcn.com`) does not currently serve an `integrity` attribute or expose a hash for the stylesheet, so `integrity`/`crossorigin` cannot be added to the `<link>` yet. Resume when albertcss is updated.
