@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sudoku</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://kit.fontawesome.com/87b0bcd87f.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <h1 class="logo">Sudoku</h1>
+      <div class="header-right">
+        <span id="mistakes" class="mistakes">Mistakes: 0</span>
+        <span id="timer" class="timer">00:00</span>
+      </div>
+    </header>
+
+    <nav class="difficulty-nav">
+      <button class="diff-btn active" data-diff="easy">Easy</button>
+      <button class="diff-btn" data-diff="normal">Normal</button>
+      <button class="diff-btn" data-diff="hard">Hard</button>
+      <button class="diff-btn" data-diff="expert">Expert</button>
+    </nav>
+
+    <main class="game-area">
+      <div id="board" class="board"></div>
+
+      <div class="controls">
+        <div class="action-row">
+          <button id="btnUndo" class="action-btn">
+            <i class="fa-sharp fa-light fa-rotate-left"></i>
+            <span>Undo</span>
+          </button>
+          <button id="btnErase" class="action-btn">
+            <i class="fa-sharp fa-light fa-eraser"></i>
+            <span>Erase</span>
+          </button>
+          <button id="btnNotes" class="action-btn">
+            <i class="fa-sharp fa-light fa-pencil"></i>
+            <span>Notes</span>
+          </button>
+          <button id="btnHint" class="action-btn">
+            <i class="fa-sharp fa-light fa-lightbulb"></i>
+            <span>Hint</span>
+          </button>
+        </div>
+
+        <div id="numpad" class="numpad"></div>
+
+        <button id="btnNewGame" class="new-game-btn">New Game</button>
+      </div>
+    </main>
+
+    <!-- Loading overlay -->
+    <div id="loading" class="overlay hidden">
+      <div class="loading-box">
+        <div class="spinner"></div>
+        <p>Generating puzzle&hellip;</p>
+      </div>
+    </div>
+
+    <!-- Victory overlay -->
+    <div id="overlay" class="overlay hidden">
+      <div class="modal">
+        <div class="modal-icon"><i class="fa-sharp fa-light fa-check"></i></div>
+        <h2>Puzzle Complete!</h2>
+        <p id="solveStats" class="solve-stats"></p>
+        <button id="btnPlayAgain" class="new-game-btn">Play Again</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="bundle.js"></script>
+</body>
+</html>
