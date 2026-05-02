@@ -34,11 +34,59 @@ function cloneNotes(n: number[][]): number[][] {
   return n.map(r => [...r]);
 }
 
+function takeSnapshot(state: GameState): Snapshot {
+  return {
+    userBoard: cloneBoard(state.userBoard),
+    notes: cloneNotes(state.notes),
+    mistakes: state.mistakes,
+  };
+}
+
+// Returns the coordinates of all 20 peer cells (same row, col, and box).
+export function getPeerCoords(row: number, col: number): Array<[number, number]> {
+  const peers: Array<[number, number]> = [];
+  for (let c = 0; c < 9; c++) if (c !== col) peers.push([row, c]);
+  for (let r = 0; r < 9; r++) if (r !== row) peers.push([r, col]);
+  const br = Math.floor(row / 3) * 3;
+  const bc = Math.floor(col / 3) * 3;
+  for (let r = br; r < br + 3; r++)
+    for (let c = bc; c < bc + 3; c++)
+      if (r !== row && c !== col) peers.push([r, c]); // row/col already covered above
+  return peers;
+}
+
+// Toggles a single note bit at (row, col) for the given digit.
+export function toggleNote(
+  notes: number[][],
+  row: number,
+  col: number,
+  num: number,
+): number[][] {
+  const next = cloneNotes(notes);
+  next[row][col] ^= 1 << (num - 1);
+  return next;
+}
+
+// Clears the bit for `num` from every peer of (row, col).
+export function erasePeerNotes(
+  notes: number[][],
+  row: number,
+  col: number,
+  num: number,
+): number[][] {
+  const next = cloneNotes(notes);
+  const bit = 1 << (num - 1);
+  for (const [r, c] of getPeerCoords(row, col)) {
+    next[r][c] &= ~bit;
+  }
+  return next;
+}
+
 export function createGame(difficulty: Difficulty): GameState {
   const { puzzle, solution } = generatePuzzle(difficulty);
 
   const given: boolean[][] = Array.from({ length: 9 }, (_, r) =>
-    Array.from({ length: 9 }, (_, c) => puzzle[r][c] !== null)
+    Array.from({ length: 9 }, (_, c) => puzzle[r][c] !== null),
   );
 
   return {
@@ -71,40 +119,36 @@ export function enterNumber(state: GameState, num: number): GameState {
   const { row, col } = selected;
   if (given[row][col]) return state;
 
-  const snapshot: Snapshot = {
-    userBoard: cloneBoard(state.userBoard),
-    notes: cloneNotes(state.notes),
-    mistakes: state.mistakes,
-  };
-
-  const userBoard = cloneBoard(state.userBoard);
-  const notes = cloneNotes(state.notes);
+  const snapshot = takeSnapshot(state);
 
   if (notesMode) {
-    // Toggle note bit
-    notes[row][col] ^= (1 << (num - 1));
-    return { ...state, userBoard, notes, history: [...state.history, snapshot] };
+    return {
+      ...state,
+      notes: toggleNote(state.notes, row, col, num),
+      history: [...state.history, snapshot],
+    };
   }
 
+  const userBoard = cloneBoard(state.userBoard);
   userBoard[row][col] = num;
-  notes[row][col] = 0; // clear notes for this cell
 
-  // Remove this number from peers' notes when correct
-  if (num === solution[row][col]) {
-    const bit = 1 << (num - 1);
-    for (let c = 0; c < 9; c++) notes[row][c] &= ~bit;
-    for (let r = 0; r < 9; r++) notes[r][col] &= ~bit;
-    const br = Math.floor(row / 3) * 3;
-    const bc = Math.floor(col / 3) * 3;
-    for (let r = br; r < br + 3; r++)
-      for (let c = bc; c < bc + 3; c++)
-        notes[r][c] &= ~bit;
-  }
+  // Clear this cell's notes; if correct, also erase that digit from all peers
+  const clearedNotes = cloneNotes(state.notes);
+  clearedNotes[row][col] = 0;
+  const notes =
+    num === solution[row][col] ? erasePeerNotes(clearedNotes, row, col, num) : clearedNotes;
 
   const mistakes = num !== solution[row][col] ? state.mistakes + 1 : state.mistakes;
   const solved = checkSolved(userBoard, solution);
 
-  return { ...state, userBoard, notes, mistakes, solved, history: [...state.history, snapshot] };
+  return {
+    ...state,
+    userBoard,
+    notes,
+    mistakes,
+    solved,
+    history: [...state.history, snapshot],
+  };
 }
 
 export function eraseCell(state: GameState): GameState {
@@ -114,11 +158,7 @@ export function eraseCell(state: GameState): GameState {
   if (given[row][col]) return state;
   if (state.userBoard[row][col] === null && state.notes[row][col] === 0) return state;
 
-  const snapshot: Snapshot = {
-    userBoard: cloneBoard(state.userBoard),
-    notes: cloneNotes(state.notes),
-    mistakes: state.mistakes,
-  };
+  const snapshot = takeSnapshot(state);
 
   const userBoard = cloneBoard(state.userBoard);
   const notes = cloneNotes(state.notes);
@@ -150,14 +190,9 @@ export function applyHint(state: GameState): GameState {
   const { selected, given, solution } = state;
   if (!selected) return state;
   const { row, col } = selected;
-  // Reveal the solution value; also works on given cells as a no-op
   if (given[row][col] && state.userBoard[row][col] === solution[row][col]) return state;
 
-  const snapshot: Snapshot = {
-    userBoard: cloneBoard(state.userBoard),
-    notes: cloneNotes(state.notes),
-    mistakes: state.mistakes,
-  };
+  const snapshot = takeSnapshot(state);
 
   const userBoard = cloneBoard(state.userBoard);
   const notes = cloneNotes(state.notes);
@@ -165,10 +200,17 @@ export function applyHint(state: GameState): GameState {
 
   userBoard[row][col] = solution[row][col];
   notes[row][col] = 0;
-  newGiven[row][col] = true; // treat hint cells as given (uneditable)
+  newGiven[row][col] = true;
 
   const solved = checkSolved(userBoard, solution);
-  return { ...state, userBoard, notes, given: newGiven, solved, history: [...state.history, snapshot] };
+  return {
+    ...state,
+    userBoard,
+    notes,
+    given: newGiven,
+    solved,
+    history: [...state.history, snapshot],
+  };
 }
 
 export function getConflicts(state: GameState): Set<string> {
@@ -180,26 +222,10 @@ export function getConflicts(state: GameState): Set<string> {
       const val = userBoard[row][col];
       if (val === null) continue;
 
-      for (let c = 0; c < 9; c++) {
-        if (c !== col && userBoard[row][c] === val) {
+      for (const [r, c] of getPeerCoords(row, col)) {
+        if (userBoard[r][c] === val) {
           conflicts.add(`${row},${col}`);
-          conflicts.add(`${row},${c}`);
-        }
-      }
-      for (let r = 0; r < 9; r++) {
-        if (r !== row && userBoard[r][col] === val) {
-          conflicts.add(`${row},${col}`);
-          conflicts.add(`${r},${col}`);
-        }
-      }
-      const br = Math.floor(row / 3) * 3;
-      const bc = Math.floor(col / 3) * 3;
-      for (let r = br; r < br + 3; r++) {
-        for (let c = bc; c < bc + 3; c++) {
-          if ((r !== row || c !== col) && userBoard[r][c] === val) {
-            conflicts.add(`${row},${col}`);
-            conflicts.add(`${r},${c}`);
-          }
+          conflicts.add(`${r},${c}`);
         }
       }
     }
