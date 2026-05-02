@@ -1,0 +1,14 @@
+{
+  "name": "sudoku",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "mkdir -p dist && esbuild src/main.ts --bundle --outfile=dist/bundle.js --minify && cp public/index.html dist/index.html && cp public/styles.css dist/styles.css",
+    "dev": "mkdir -p dist && cp public/index.html dist/index.html && cp public/styles.css dist/styles.css && esbuild src/main.ts --bundle --outfile=dist/bundle.js --watch --servedir=dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0"
+  }
+}
