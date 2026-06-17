@@ -3,6 +3,6 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   base: './',
   server: {
-    port: 3070,
+    port: 3110,
   },
 })
