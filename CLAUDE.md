@@ -34,7 +34,7 @@ yarn test:run
 
 ## Fonts & icons
 
-- Raleway (600) via albertcss — loaded as part of `albert.css`
+- Outfit (via albertcss v0.18.0, `albert.min.css`) — albertcss switched Raleway → Outfit in v0.17.0; delegated entirely to the CDN link, no font override in `styles.css`
 - FontAwesome (sharp/light kit `87b0bcd87f`) for toolbar icons (undo, erase, pencil, lightbulb, checkmark)
 
 ## Progress (2026-05-02)
@@ -61,10 +61,10 @@ yarn test:run
 - **CDN `<link>` over vendoring** — consistent with existing Google Fonts / FontAwesome CDN pattern; albertcss is the author's own library so the CDN is authoritative
 - **`--ab-*` prefix dropped** — game tokens now reference albertcss vars directly (e.g. `var(--primary)`, `var(--grey900)`); dark mode colour flipping is fully delegated to albertcss
 - **`.header` renamed to `.game-header`** — avoids collision with albertcss's `.header` component (site nav grid), keeping both stylesheets independent
-- **Raleway font-weight reduced to 600** — albertcss only loads weights 200 + 600; removed the separate Google Fonts link rather than loading additional weights
+- ~~Raleway font-weight reduced to 600~~ — superseded; albertcss switched to Outfit in v0.17.0 (weights 500/600, no override needed here)
 
 **Outstanding:**
-- **SRI for albertcss CDN link** — blocked until albertcss publishes a hash or the CDN supports it. The albertcss CDN (`albertcss.craigmcn.com`) does not currently serve an `integrity` attribute or expose a hash for the stylesheet, so `integrity`/`crossorigin` cannot be added to the `<link>` yet. Resume when albertcss is updated.
+- None — SRI resolved 2026-07-11: bumped to albertcss v0.18.0, switched the `<link>` to `albert.min.css`, added `integrity`/`crossorigin` using the hash published in albertcss's `versions.json`.
 
 **Future TODOs:**
 - **Firebase login** (see `hpab` for the auth pattern) — authenticated user accounts; store per-user game play statistics (time, difficulty, mistakes, completion).
