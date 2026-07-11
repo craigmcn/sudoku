@@ -8,6 +8,7 @@ import {
   undoMove,
   toggleNotesMode,
   applyHint,
+  togglePause,
   getConflicts,
 } from './game';
 
@@ -17,12 +18,15 @@ const boardEl = document.getElementById('board')!;
 const timerEl = document.getElementById('timer')!;
 const loadingEl = document.getElementById('loading')!;
 const overlayEl = document.getElementById('overlay')!;
+const pauseOverlayEl = document.getElementById('pauseOverlay')!;
 const solveStatsEl = document.getElementById('solveStats')!;
 const mistakesEl = document.getElementById('mistakes')!;
 const btnUndo = document.getElementById('btnUndo')!;
 const btnErase = document.getElementById('btnErase')!;
 const btnNotes = document.getElementById('btnNotes')!;
 const btnHint = document.getElementById('btnHint')!;
+const btnPause = document.getElementById('btnPause')! as HTMLButtonElement;
+const btnResume = document.getElementById('btnResume')!;
 const btnNewGame = document.getElementById('btnNewGame')!;
 const btnPlayAgain = document.getElementById('btnPlayAgain')!;
 const numpadEl = document.getElementById('numpad')!;
@@ -163,6 +167,13 @@ function render(): void {
   // Notes mode button highlight
   btnNotes.classList.toggle('active', state.notesMode);
 
+  // Pause button enabled once the timer has started and the puzzle isn't solved
+  btnPause.disabled = !state.started || state.solved;
+  btnPause.querySelector('i')!.className = state.paused
+    ? 'fa-sharp fa-light fa-play'
+    : 'fa-sharp fa-light fa-pause';
+  btnPause.setAttribute('aria-label', state.paused ? 'Resume timer' : 'Pause timer');
+
   // Mistakes
   mistakesEl.textContent = `Mistakes: ${state.mistakes}`;
 
@@ -207,11 +218,20 @@ function renderTimer(): void {
   timerEl.textContent = `${mm}:${ss}`;
 }
 
+// Kicks off the timer the moment `started` first flips true (first digit
+// entered or first hint applied), regardless of which action triggered it.
+function startTimerIfJustStarted(wasStarted: boolean): void {
+  if (!state || wasStarted || !state.started) return;
+  state = { ...state, startTime: Date.now(), elapsed: 0 };
+  startTimer();
+}
+
 // ── Game flow ─────────────────────────────────────────────────────────────────
 
 async function startNewGame(): Promise<void> {
   stopTimer();
   overlayEl.classList.add('hidden');
+  pauseOverlayEl.classList.add('hidden');
   loadingEl.classList.remove('hidden');
 
   // Yield to browser so loading UI renders before sync generation work
@@ -220,7 +240,7 @@ async function startNewGame(): Promise<void> {
   state = createGame(difficulty);
   loadingEl.classList.add('hidden');
   timerEl.textContent = '00:00';
-  startTimer();
+  // Timer stays idle until the first cell is filled — see handleNumInput
   render();
 }
 
@@ -237,19 +257,41 @@ function handleVictory(): void {
 // ── Event handlers ────────────────────────────────────────────────────────────
 
 function handleCellClick(row: number, col: number): void {
-  if (!state || state.solved) return;
+  if (!state || state.solved || state.paused) return;
   state = selectCell(state, row, col);
   render();
 }
 
 function handleNumInput(num: number): void {
-  if (!state || state.solved) return;
+  if (!state || state.solved || state.paused) return;
+  const wasStarted = state.started;
   state = enterNumber(state, num);
+  startTimerIfJustStarted(wasStarted);
+  render();
+}
+
+function handlePauseToggle(): void {
+  if (!state || !state.started || state.solved) return;
+  state = togglePause(state);
+  if (state.paused) {
+    stopTimer();
+    pauseOverlayEl.classList.remove('hidden');
+  } else {
+    pauseOverlayEl.classList.add('hidden');
+    startTimer();
+  }
   render();
 }
 
 function handleKeydown(e: KeyboardEvent): void {
   if (!state || state.solved) return;
+
+  if (e.key === 'p' || e.key === 'P') {
+    handlePauseToggle();
+    return;
+  }
+
+  if (state.paused) return;
 
   if (e.key >= '1' && e.key <= '9') {
     handleNumInput(parseInt(e.key));
@@ -311,28 +353,33 @@ function init(): void {
   btnPlayAgain.addEventListener('click', () => startNewGame());
 
   btnUndo.addEventListener('click', () => {
-    if (!state) return;
+    if (!state || state.paused) return;
     state = undoMove(state);
     render();
   });
 
   btnErase.addEventListener('click', () => {
-    if (!state) return;
+    if (!state || state.paused) return;
     state = eraseCell(state);
     render();
   });
 
   btnNotes.addEventListener('click', () => {
-    if (!state) return;
+    if (!state || state.paused) return;
     state = toggleNotesMode(state);
     render();
   });
 
   btnHint.addEventListener('click', () => {
-    if (!state) return;
+    if (!state || state.paused) return;
+    const wasStarted = state.started;
     state = applyHint(state);
+    startTimerIfJustStarted(wasStarted);
     render();
   });
+
+  btnPause.addEventListener('click', () => handlePauseToggle());
+  btnResume.addEventListener('click', () => handlePauseToggle());
 
   document.addEventListener('keydown', handleKeydown);
 

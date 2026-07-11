@@ -56,7 +56,9 @@
   }
   .timer      { color: var(--grey300); }
   .action-btn { color: var(--grey300); }
+  .pause-btn  { color: var(--grey300); }
   .modal-icon { background: #0e2b0e; color: var(--green); }
+  .modal-icon-pause { background: #2d2d31; color: var(--grey300); }
 }
 
 /* ── Base ────────────────────────────────────────────────────────────────── */
@@ -108,6 +110,32 @@ body {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--grey700);
+}
+
+.pause-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  color: var(--grey600);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.pause-btn:hover:not(:disabled) {
+  background: var(--btn-hover);
+  color: var(--primary);
+}
+
+.pause-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 /* ── Difficulty nav ──────────────────────────────────────────────────────── */
@@ -381,6 +409,11 @@ body {
   align-items: center;
   justify-content: center;
   margin-bottom: 0.25rem;
+}
+
+.modal-icon-pause {
+  background: var(--btn-hover);
+  color: var(--grey700);
 }
 
 .modal h2 {

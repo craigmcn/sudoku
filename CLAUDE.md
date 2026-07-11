@@ -65,3 +65,13 @@ yarn test:run
 
 **Outstanding:**
 - **SRI for albertcss CDN link** — blocked until albertcss publishes a hash or the CDN supports it. The albertcss CDN (`albertcss.craigmcn.com`) does not currently serve an `integrity` attribute or expose a hash for the stylesheet, so `integrity`/`crossorigin` cannot be added to the `<link>` yet. Resume when albertcss is updated.
+
+**Future TODOs:**
+- **Firebase login** (see `hpab` for the auth pattern) — authenticated user accounts; store per-user game play statistics (time, difficulty, mistakes, completion).
+- **Anonymous game identity** — consider a way to persistently identify a guest session and number games (e.g. "Game #1042") so players have a sense of continuity without requiring login.
+
+## Pause timer (2026-07-11)
+
+- **`started`/`paused` on `GameState`** — the timer doesn't run until the player enters their first digit (`started` flips `true` inside `enterNumber`, only for an actual value, not a pencil note). Every state-mutating action in `game.ts` (`selectCell`, `enterNumber`, `eraseCell`, `undoMove`, `toggleNotesMode`, `applyHint`) no-ops while `paused`, so the pause guarantee holds even if a UI guard is missed.
+- **`pauseGame`/`resumeGame`/`togglePause`** — `resumeGame` re-anchors `startTime` to `Date.now() - elapsed * 1000` so the displayed time picks up where it left off rather than including the paused interval.
+- **Pause overlay reuses the existing `.overlay`/`.modal` pattern** — same blurred full-screen treatment as the loading/victory overlays, which also has the side effect of blocking board interaction while paused (no extra click-blocking CSS needed). `P` is a keyboard shortcut for pause/resume.

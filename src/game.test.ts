@@ -6,9 +6,12 @@ import {
   erasePeerNotes,
   getConflicts,
   getPeerCoords,
+  pauseGame,
+  resumeGame,
   selectCell,
   toggleNote,
   toggleNotesMode,
+  togglePause,
   undoMove,
 } from './game'
 import type { GameState } from './game'
@@ -56,6 +59,8 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     difficulty: 'easy',
     startTime: 0,
     elapsed: 0,
+    started: false,
+    paused: false,
     solved: false,
     mistakes: 0,
     history: [],
@@ -217,6 +222,22 @@ describe('enterNumber', () => {
     const s = makeState({ selected: { row: 0, col: 2 }, notes })
     expect(enterNumber(s, 4).notes[0][5] & (1 << 3)).toBe(0)
   })
+
+  it('marks the game as started on the first entered value', () => {
+    const s = makeState({ selected: { row: 0, col: 2 } })
+    expect(s.started).toBe(false)
+    expect(enterNumber(s, 4).started).toBe(true)
+  })
+
+  it('does not mark the game as started when only toggling a note', () => {
+    const s = makeState({ selected: { row: 0, col: 2 }, notesMode: true })
+    expect(enterNumber(s, 4).started).toBe(false)
+  })
+
+  it('does nothing while paused', () => {
+    const s = makeState({ selected: { row: 0, col: 2 }, paused: true })
+    expect(enterNumber(s, 4)).toBe(s)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -282,6 +303,70 @@ describe('applyHint', () => {
     const next = applyHint(s)
     expect(next.userBoard[0][2]).toBe(4)
     expect(next.given[0][2]).toBe(true)
+  })
+
+  it('marks the game as started, so a hint can start the timer', () => {
+    const s = makeState({ selected: { row: 0, col: 2 } })
+    expect(s.started).toBe(false)
+    expect(applyHint(s).started).toBe(true)
+  })
+
+  it('does nothing while paused', () => {
+    const s = makeState({ selected: { row: 0, col: 2 }, paused: true })
+    expect(applyHint(s)).toBe(s)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// pauseGame / resumeGame / togglePause
+// ---------------------------------------------------------------------------
+
+describe('pauseGame', () => {
+  it('does nothing if the timer has not started', () => {
+    const s = makeState({ started: false })
+    expect(pauseGame(s)).toBe(s)
+  })
+
+  it('does nothing if already solved', () => {
+    const s = makeState({ started: true, solved: true })
+    expect(pauseGame(s)).toBe(s)
+  })
+
+  it('pauses a started, unsolved game', () => {
+    const s = makeState({ started: true })
+    expect(pauseGame(s).paused).toBe(true)
+  })
+
+  it('recomputes elapsed from startTime instead of trusting a stale value', () => {
+    // startTime 10s ago; stale `elapsed` (e.g. from the last 1s timer tick)
+    // should be overwritten with a value derived from Date.now(), not reused
+    const s = makeState({ started: true, startTime: Date.now() - 10_000, elapsed: 0 })
+    expect(pauseGame(s).elapsed).toBeGreaterThanOrEqual(10)
+  })
+})
+
+describe('resumeGame', () => {
+  it('does nothing if not paused', () => {
+    const s = makeState({ started: true, paused: false })
+    expect(resumeGame(s)).toBe(s)
+  })
+
+  it('unpauses and re-anchors startTime from elapsed', () => {
+    const s = makeState({ started: true, paused: true, elapsed: 42 })
+    const before = Date.now()
+    const resumed = resumeGame(s)
+    expect(resumed.paused).toBe(false)
+    expect(resumed.startTime).toBeGreaterThanOrEqual(before - 42_000)
+    expect(resumed.startTime).toBeLessThanOrEqual(Date.now() - 42_000)
+  })
+})
+
+describe('togglePause', () => {
+  it('pauses when running and resumes when paused', () => {
+    const s = makeState({ started: true })
+    const paused = togglePause(s)
+    expect(paused.paused).toBe(true)
+    expect(togglePause(paused).paused).toBe(false)
   })
 })
 
