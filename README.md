@@ -31,7 +31,7 @@ yarn install
 ### Commands
 
 ```bash
-yarn dev           # dev server at http://localhost:3070
+yarn dev           # dev server at http://localhost:3110
 yarn build         # production build → dist/
 yarn preview       # preview the production build locally
 yarn typecheck     # TypeScript type-check (no emit)
@@ -41,4 +41,5 @@ yarn format        # Prettier
 yarn test          # Vitest in watch mode
 yarn test:run      # Vitest single pass
 yarn test:coverage # Vitest with v8 coverage report
+yarn test:e2e      # Playwright e2e tests (starts its own dev server)
 ```
