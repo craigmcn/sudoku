@@ -25,7 +25,7 @@ const btnUndo = document.getElementById('btnUndo')!;
 const btnErase = document.getElementById('btnErase')!;
 const btnNotes = document.getElementById('btnNotes')!;
 const btnHint = document.getElementById('btnHint')!;
-const btnPause = document.getElementById('btnPause') as HTMLButtonElement;
+const btnPause = document.getElementById('btnPause')! as HTMLButtonElement;
 const btnResume = document.getElementById('btnResume')!;
 const btnNewGame = document.getElementById('btnNewGame')!;
 const btnPlayAgain = document.getElementById('btnPlayAgain')!;
@@ -172,6 +172,7 @@ function render(): void {
   btnPause.querySelector('i')!.className = state.paused
     ? 'fa-sharp fa-light fa-play'
     : 'fa-sharp fa-light fa-pause';
+  btnPause.setAttribute('aria-label', state.paused ? 'Resume timer' : 'Pause timer');
 
   // Mistakes
   mistakesEl.textContent = `Mistakes: ${state.mistakes}`;
@@ -217,6 +218,14 @@ function renderTimer(): void {
   timerEl.textContent = `${mm}:${ss}`;
 }
 
+// Kicks off the timer the moment `started` first flips true (first digit
+// entered or first hint applied), regardless of which action triggered it.
+function startTimerIfJustStarted(wasStarted: boolean): void {
+  if (!state || wasStarted || !state.started) return;
+  state = { ...state, startTime: Date.now(), elapsed: 0 };
+  startTimer();
+}
+
 // ── Game flow ─────────────────────────────────────────────────────────────────
 
 async function startNewGame(): Promise<void> {
@@ -257,10 +266,7 @@ function handleNumInput(num: number): void {
   if (!state || state.solved || state.paused) return;
   const wasStarted = state.started;
   state = enterNumber(state, num);
-  if (!wasStarted && state.started) {
-    state = { ...state, startTime: Date.now(), elapsed: 0 };
-    startTimer();
-  }
+  startTimerIfJustStarted(wasStarted);
   render();
 }
 
@@ -366,7 +372,9 @@ function init(): void {
 
   btnHint.addEventListener('click', () => {
     if (!state || state.paused) return;
+    const wasStarted = state.started;
     state = applyHint(state);
+    startTimerIfJustStarted(wasStarted);
     render();
   });
 

@@ -304,6 +304,17 @@ describe('applyHint', () => {
     expect(next.userBoard[0][2]).toBe(4)
     expect(next.given[0][2]).toBe(true)
   })
+
+  it('marks the game as started, so a hint can start the timer', () => {
+    const s = makeState({ selected: { row: 0, col: 2 } })
+    expect(s.started).toBe(false)
+    expect(applyHint(s).started).toBe(true)
+  })
+
+  it('does nothing while paused', () => {
+    const s = makeState({ selected: { row: 0, col: 2 }, paused: true })
+    expect(applyHint(s)).toBe(s)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -324,6 +335,13 @@ describe('pauseGame', () => {
   it('pauses a started, unsolved game', () => {
     const s = makeState({ started: true })
     expect(pauseGame(s).paused).toBe(true)
+  })
+
+  it('recomputes elapsed from startTime instead of trusting a stale value', () => {
+    // startTime 10s ago; stale `elapsed` (e.g. from the last 1s timer tick)
+    // should be overwritten with a value derived from Date.now(), not reused
+    const s = makeState({ started: true, startTime: Date.now() - 10_000, elapsed: 0 })
+    expect(pauseGame(s).elapsed).toBeGreaterThanOrEqual(10)
   })
 })
 

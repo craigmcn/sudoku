@@ -197,7 +197,9 @@ export function toggleNotesMode(state: GameState): GameState {
 
 export function pauseGame(state: GameState): GameState {
   if (!state.started || state.paused || state.solved) return state;
-  return { ...state, paused: true };
+  // Sync elapsed to the moment of pausing rather than the last 1s timer tick
+  const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+  return { ...state, paused: true, elapsed };
 }
 
 export function resumeGame(state: GameState): GameState {
@@ -235,6 +237,7 @@ export function applyHint(state: GameState): GameState {
     notes,
     given: newGiven,
     solved,
+    started: true,
     history: [...state.history, snapshot],
   };
 }
