@@ -85,3 +85,8 @@ yarn test:e2e      # Playwright, starts its own dev server
 - **Locators re-evaluate on every action** — `.cell:not(.given)` is a live selector; once a hint reveals a cell it gains `.given` and drops out of that locator, silently shifting `.first()`/`.nth()` to a different cell on the next call. Tests that pick a cell and then act on it snapshot `data-row`/`data-col` first, then re-locate by those attributes for follow-up assertions.
 - **Wait for `#loading` to be hidden before reading board state** — puzzle generation is async (a 30ms yield plus the actual backtracking work), so a bare `locator.count()` read right after `page.goto()` or a difficulty click can race it and undercount `.cell.given`. Every test that reads board state first asserts `#loading` has the `hidden` class.
 - **Pause overlay blocks clicks at the browser level, not just in app state** — Playwright's own actionability check refuses to click the numpad through `#pauseOverlay` (`intercepts pointer events`), which is confirmation the CSS-only blocking approach (documented under Pause timer above) works. The pause test uses `{ force: true }` to bypass that check and additionally confirm `game.ts`'s `paused` guard makes the input a no-op even if the overlay were somehow bypassed.
+
+## mise + Node 24 CI (2026-07-11)
+
+- **`.nvmrc` → `.node-version`** — project now uses `mise` locally, which reads `.node-version` (no `v` prefix, e.g. `24.14.1`) rather than `.nvmrc`. CI's `setup-node` step points at `node-version-file: .node-version`.
+- **`actions/checkout` → v7, `actions/setup-node` → v6, `actions/cache` → v6** — resolves GitHub's "Node.js 20 actions are deprecated" warning; all three majors now run on the Node 24 Actions runtime.

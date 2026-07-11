@@ -19,7 +19,7 @@ Conflicts (duplicate digits in the same row, column, or box) are highlighted in 
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) 24.x LTS (see `.nvmrc`)
+- [Node.js](https://nodejs.org/) 24.x LTS (see `.node-version`)
 - [Yarn](https://yarnpkg.com/) 4.x — run `corepack enable` to activate
 
 ### Install
