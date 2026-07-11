@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test('loads a puzzle with 81 cells and some given clues', async ({ page }) => {
   await page.goto('/')
+  await expect(page.locator('#loading')).toHaveClass(/hidden/)
 
   await expect(page.locator('.cell')).toHaveCount(81)
   const easyGivens = await page.locator('.cell.given').count()
@@ -13,10 +14,12 @@ test('loads a puzzle with 81 cells and some given clues', async ({ page }) => {
 
 test('switching difficulty starts a new puzzle with fewer clues than easy', async ({ page }) => {
   await page.goto('/')
+  await expect(page.locator('#loading')).toHaveClass(/hidden/)
 
   const easyGivens = await page.locator('.cell.given').count()
 
   await page.getByRole('button', { name: 'Expert' }).click()
+  await expect(page.locator('#loading')).toHaveClass(/hidden/)
 
   const expertGivens = await page.locator('.cell.given').count()
   expect(expertGivens).toBeLessThan(easyGivens)
@@ -25,9 +28,10 @@ test('switching difficulty starts a new puzzle with fewer clues than easy', asyn
 
 test('hint reveals a cell, starts the timer, and enables pause', async ({ page }) => {
   await page.goto('/')
+  await expect(page.locator('#loading')).toHaveClass(/hidden/)
 
   const emptyCell = page.locator('.cell:not(.given)').first()
-  const { row, col } = await emptyCell.evaluate(el => (el as HTMLElement).dataset) as {
+  const { row, col } = (await emptyCell.evaluate(el => (el as HTMLElement).dataset)) as {
     row: string
     col: string
   }
@@ -40,14 +44,37 @@ test('hint reveals a cell, starts the timer, and enables pause', async ({ page }
   await expect(page.locator('#btnPause')).toBeEnabled()
 })
 
-test('pausing hides the board interaction behind the pause overlay', async ({ page }) => {
+test('pausing blocks board input and hides it behind the pause overlay', async ({ page }) => {
   await page.goto('/')
+  await expect(page.locator('#loading')).toHaveClass(/hidden/)
 
-  await page.locator('.cell:not(.given)').first().click()
+  const cells = page.locator('.cell:not(.given)')
+  const [hintPos, otherPos] = await Promise.all([
+    cells.nth(0).evaluate(el => (el as HTMLElement).dataset) as Promise<{
+      row: string
+      col: string
+    }>,
+    cells.nth(1).evaluate(el => (el as HTMLElement).dataset) as Promise<{
+      row: string
+      col: string
+    }>,
+  ])
+  const otherCell = page.locator(`.cell[data-row="${otherPos.row}"][data-col="${otherPos.col}"]`)
+
+  await page
+    .locator(`.cell[data-row="${hintPos.row}"][data-col="${hintPos.col}"]`)
+    .click()
   await page.locator('#btnHint').click()
-  await page.locator('#btnPause').click()
 
+  await otherCell.click()
+  await page.locator('#btnPause').click()
   await expect(page.locator('#pauseOverlay')).not.toHaveClass(/hidden/)
+
+  // The pause overlay physically covers the numpad, so a normal click can't
+  // reach it — force the click to also confirm the `paused` state guard
+  // in game.ts makes the input a no-op even if the overlay were bypassed.
+  await page.locator('.num-btn[data-num="4"]').click({ force: true })
+  await expect(otherCell).not.toHaveClass(/has-value/)
 
   await page.locator('#btnResume').click()
   await expect(page.locator('#pauseOverlay')).toHaveClass(/hidden/)
@@ -55,6 +82,7 @@ test('pausing hides the board interaction behind the pause overlay', async ({ pa
 
 test('notes mode pencils in a digit without filling the cell', async ({ page }) => {
   await page.goto('/')
+  await expect(page.locator('#loading')).toHaveClass(/hidden/)
 
   const emptyCell = page.locator('.cell:not(.given)').first()
   await emptyCell.click()
@@ -70,6 +98,7 @@ test('notes mode pencils in a digit without filling the cell', async ({ page }) 
 
 test('undo restores the previous cell state', async ({ page }) => {
   await page.goto('/')
+  await expect(page.locator('#loading')).toHaveClass(/hidden/)
 
   const emptyCell = page.locator('.cell:not(.given)').first()
   await emptyCell.click()
@@ -82,14 +111,16 @@ test('undo restores the previous cell state', async ({ page }) => {
   await expect(emptyCell).not.toHaveClass(/has-notes/)
 })
 
-test('new game reshuffles the board and resets the timer', async ({ page }) => {
+test('new game clears progress and resets the timer and pause state', async ({ page }) => {
   await page.goto('/')
+  await expect(page.locator('#loading')).toHaveClass(/hidden/)
 
   await page.locator('.cell:not(.given)').first().click()
   await page.locator('#btnHint').click()
   await expect(page.locator('#btnPause')).toBeEnabled()
 
   await page.locator('#btnNewGame').click()
+  await expect(page.locator('#loading')).toHaveClass(/hidden/)
 
   await expect(page.locator('#timer')).toHaveText('00:00')
   await expect(page.locator('#btnPause')).toBeDisabled()
