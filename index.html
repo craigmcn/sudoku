@@ -22,6 +22,9 @@
       <div class="header-right">
         <span id="mistakes" class="mistakes">Mistakes: 0</span>
         <span id="timer" class="timer">00:00</span>
+        <button id="btnPause" class="pause-btn" disabled aria-label="Pause timer">
+          <i class="fa-sharp fa-light fa-pause"></i>
+        </button>
       </div>
     </header>
 
@@ -76,6 +79,15 @@
         <h2>Puzzle Complete!</h2>
         <p id="solveStats" class="solve-stats"></p>
         <button id="btnPlayAgain" class="new-game-btn">Play Again</button>
+      </div>
+    </div>
+
+    <!-- Pause overlay -->
+    <div id="pauseOverlay" class="overlay hidden">
+      <div class="modal">
+        <div class="modal-icon modal-icon-pause"><i class="fa-sharp fa-light fa-pause"></i></div>
+        <h2>Paused</h2>
+        <button id="btnResume" class="new-game-btn">Resume</button>
       </div>
     </div>
   </div>

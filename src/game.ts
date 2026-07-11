@@ -15,6 +15,8 @@ export interface GameState {
   difficulty: Difficulty;
   startTime: number;
   elapsed: number;
+  started: boolean;
+  paused: boolean;
   solved: boolean;
   mistakes: number;
   history: Snapshot[];
@@ -99,6 +101,8 @@ export function createGame(difficulty: Difficulty): GameState {
     difficulty,
     startTime: Date.now(),
     elapsed: 0,
+    started: false,
+    paused: false,
     solved: false,
     mistakes: 0,
     history: [],
@@ -106,6 +110,7 @@ export function createGame(difficulty: Difficulty): GameState {
 }
 
 export function selectCell(state: GameState, row: number, col: number): GameState {
+  if (state.paused) return state;
   if (state.selected?.row === row && state.selected?.col === col) {
     return { ...state, selected: null };
   }
@@ -114,6 +119,7 @@ export function selectCell(state: GameState, row: number, col: number): GameStat
 
 export function enterNumber(state: GameState, num: number): GameState {
   const { selected, given, solution, notesMode } = state;
+  if (state.paused) return state;
   if (!selected) return state;
   const { row, col } = selected;
   if (given[row][col]) return state;
@@ -146,12 +152,14 @@ export function enterNumber(state: GameState, num: number): GameState {
     notes,
     mistakes,
     solved,
+    started: true,
     history: [...state.history, snapshot],
   };
 }
 
 export function eraseCell(state: GameState): GameState {
   const { selected, given } = state;
+  if (state.paused) return state;
   if (!selected) return state;
   const { row, col } = selected;
   if (given[row][col]) return state;
@@ -168,6 +176,7 @@ export function eraseCell(state: GameState): GameState {
 }
 
 export function undoMove(state: GameState): GameState {
+  if (state.paused) return state;
   if (state.history.length === 0) return state;
   const history = [...state.history];
   const snap = history.pop()!;
@@ -182,11 +191,28 @@ export function undoMove(state: GameState): GameState {
 }
 
 export function toggleNotesMode(state: GameState): GameState {
+  if (state.paused) return state;
   return { ...state, notesMode: !state.notesMode };
+}
+
+export function pauseGame(state: GameState): GameState {
+  if (!state.started || state.paused || state.solved) return state;
+  return { ...state, paused: true };
+}
+
+export function resumeGame(state: GameState): GameState {
+  if (!state.paused) return state;
+  // Re-anchor startTime so elapsed continues from where it left off
+  return { ...state, paused: false, startTime: Date.now() - state.elapsed * 1000 };
+}
+
+export function togglePause(state: GameState): GameState {
+  return state.paused ? resumeGame(state) : pauseGame(state);
 }
 
 export function applyHint(state: GameState): GameState {
   const { selected, given, solution } = state;
+  if (state.paused) return state;
   if (!selected) return state;
   const { row, col } = selected;
   // No-op if the cell is already correctly filled (covers given cells)
