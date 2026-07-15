@@ -67,9 +67,8 @@ yarn test:e2e      # Playwright, starts its own dev server
 **Outstanding:**
 - None — SRI resolved 2026-07-11: bumped to albertcss v0.18.0, switched the `<link>` to `albert.min.css`, added `integrity`/`crossorigin` using the hash published in albertcss's `versions.json`.
 
-**Future TODOs:**
-- **Firebase login** (see `hpab` for the auth pattern) — authenticated user accounts; store per-user game play statistics (time, difficulty, mistakes, completion).
-- **Anonymous game identity** — consider a way to persistently identify a guest session and number games (e.g. "Game #1042") so players have a sense of continuity without requiring login.
+**Future TODOs:** tracked as issues in the [sudoku GitHub Project](https://github.com/users/craigmcn/projects/10) — Firebase login + per-user stats, and anonymous game identity/puzzle numbering.
+
 - **Storage backend research done (2026-07-11)** — Firebase (Firestore + Auth) is the recommended free backend for puzzle-by-number storage, "puzzle of the day," and the login TODOs above; compared against Supabase, Netlify Blobs, MongoDB Atlas, and Cloudflare D1. Reuse the `files` repo's Firestore-doc-per-user pattern, but create the user doc client-side on first sign-in rather than via a `beforeUserCreated` Cloud Function trigger (that requires the paid Blaze plan). Proposed collections: `puzzles/{puzzleNumber}`, `dailyPuzzle/current`, `users/{uid}.progress`. Puzzle numbering doesn't exist yet — `generator.ts` uses raw `Math.random()` with no seed — so a numbering scheme is part of implementation, not already solved. Full writeup saved locally in Claude Code plan history (`research-free-database-or-quizzical-neumann`).
 
 ## Pause timer (2026-07-11)
