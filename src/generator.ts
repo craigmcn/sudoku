@@ -1,4 +1,5 @@
 import { Board, isValid, countSolutions } from './solver';
+import { mulberry32, Rng } from './rng';
 
 export type Difficulty = 'easy' | 'normal' | 'hard' | 'expert';
 
@@ -10,29 +11,29 @@ const CLUE_COUNTS: Record<Difficulty, number> = {
   expert: 22,
 };
 
-function shuffle<T>(arr: T[]): T[] {
+function shuffle<T>(arr: T[], rng: Rng): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
 }
 
-function generateFilledBoard(): Board {
+function generateFilledBoard(rng: Rng): Board {
   const board: Board = Array.from({ length: 9 }, () => Array(9).fill(null));
-  fill(board);
+  fill(board, rng);
   return board;
 }
 
-function fill(board: Board): boolean {
+function fill(board: Board, rng: Rng): boolean {
   for (let row = 0; row < 9; row++) {
     for (let col = 0; col < 9; col++) {
       if (board[row][col] === null) {
-        for (const num of shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9])) {
+        for (const num of shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9], rng)) {
           if (isValid(board, row, col, num)) {
             board[row][col] = num;
-            if (fill(board)) return true;
+            if (fill(board, rng)) return true;
             board[row][col] = null;
           }
         }
@@ -43,12 +44,22 @@ function fill(board: Board): boolean {
   return true;
 }
 
-export function generatePuzzle(difficulty: Difficulty): { puzzle: Board; solution: Board } {
-  const solution = generateFilledBoard();
-  const puzzle: Board = solution.map(row => [...row]);
+// `seed` makes generation reproducible (needed for daily puzzles and for
+// hashing a puzzle's identity from its inputs); omitting it falls back to
+// Math.random for ordinary one-off play, unchanged from prior behavior.
+export function generatePuzzle(
+  difficulty: Difficulty,
+  seed?: number,
+): { puzzle: Board; solution: Board } {
+  const rng: Rng = seed === undefined ? Math.random : mulberry32(seed);
+  const solution = generateFilledBoard(rng);
+  const puzzle: Board = solution.map((row) => [...row]);
 
   const toRemove = 81 - CLUE_COUNTS[difficulty];
-  const positions = shuffle(Array.from({ length: 81 }, (_, i) => i));
+  const positions = shuffle(
+    Array.from({ length: 81 }, (_, i) => i),
+    rng,
+  );
   let removed = 0;
 
   for (const pos of positions) {
