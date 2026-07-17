@@ -165,6 +165,43 @@ body {
 .diff-btn:hover  { background: var(--btn-hover); color: var(--primary); }
 .diff-btn.active { background: var(--primary); color: #fff; font-weight: 600; }
 
+/* ── Daily puzzle nav ────────────────────────────────────────────────────── */
+
+.daily-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.daily-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.5rem;
+  background: var(--btn-bg);
+  border: 0.125rem solid var(--btn-border);
+  border-radius: var(--radius);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--grey700);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.daily-btn:hover {
+  background: var(--btn-hover);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.daily-btn.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
 /* ── Game area ───────────────────────────────────────────────────────────── */
 
 .game-area {

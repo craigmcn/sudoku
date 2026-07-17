@@ -87,8 +87,10 @@ export function erasePeerNotes(
   return next;
 }
 
-export function createGame(difficulty: Difficulty): GameState {
-  const { puzzle, solution } = generatePuzzle(difficulty);
+// `seed` makes the puzzle reproducible (daily puzzles, see src/dailyPuzzle.ts);
+// omitting it generates a fresh random puzzle, unchanged from prior behavior.
+export function createGame(difficulty: Difficulty, seed?: number): GameState {
+  const { puzzle, solution } = generatePuzzle(difficulty, seed);
 
   const given: boolean[][] = Array.from({ length: 9 }, (_, r) =>
     Array.from({ length: 9 }, (_, c) => puzzle[r][c] !== null),
