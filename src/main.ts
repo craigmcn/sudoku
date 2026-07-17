@@ -44,6 +44,11 @@ let difficulty: Difficulty = 'easy';
 // randomly generated. Cleared by any action that should give a fresh
 // random puzzle (regular difficulty pick, New Game, Play Again).
 let activeSeed: number | undefined;
+// Bumped on every startNewGame() call; each call captures its own value and
+// checks it again after the loading yield, so an overlapping older call
+// (e.g. two quick clicks across difficulty/daily buttons) bails out instead
+// of clobbering a newer call's state with a stale puzzle.
+let gameGeneration = 0;
 let timerInterval: ReturnType<typeof setInterval> | null = null;
 // Guards against recordPuzzleCompletion firing more than once for the same
 // solve — render() can run again after `solved` flips true (e.g. further
@@ -243,6 +248,8 @@ function startTimerIfJustStarted(wasStarted: boolean): void {
 // ── Game flow ─────────────────────────────────────────────────────────────────
 
 async function startNewGame(): Promise<void> {
+  const myGeneration = ++gameGeneration;
+
   stopTimer();
   overlayEl.classList.add('hidden');
   pauseOverlayEl.classList.add('hidden');
@@ -250,6 +257,10 @@ async function startNewGame(): Promise<void> {
 
   // Yield to browser so loading UI renders before sync generation work
   await new Promise(r => setTimeout(r, 30));
+
+  // A newer startNewGame() call started while this one was yielding —
+  // let it win instead of overwriting its state with a stale puzzle.
+  if (myGeneration !== gameGeneration) return;
 
   state = createGame(difficulty, activeSeed);
   completionRecorded = false;
@@ -270,7 +281,7 @@ function setActiveDiffButton(target: Difficulty): void {
 }
 
 // Starts today's puzzle for `targetDifficulty` — deterministic, so every
-// player gets the identical puzzle. `dailyLabel` is the button that should
+// player gets the identical puzzle. `dailyButton` is the button that should
 // show as active (Today's Puzzle vs. Daily Random pick a difficulty
 // differently, but both land here).
 function startDailyGame(targetDifficulty: Difficulty, dailyButton: HTMLElement): void {
@@ -395,11 +406,11 @@ function init(): void {
   // leaving daily mode if it was active.
   document.querySelectorAll('.diff-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      const target = (btn as HTMLElement).dataset.diff as Difficulty;
+      setActiveDiffButton(target);
       btnDaily.classList.remove('active');
       btnDailyRandom.classList.remove('active');
-      difficulty = (btn as HTMLElement).dataset.diff as Difficulty;
+      difficulty = target;
       activeSeed = undefined;
       startNewGame();
     });

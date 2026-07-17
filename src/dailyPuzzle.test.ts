@@ -6,7 +6,10 @@ const mocks = vi.hoisted(() => ({
   getDoc: vi.fn(),
   setDoc: vi.fn(),
   ensureAnonymousAuth: vi.fn(() => Promise.resolve({ uid: 'test-uid' })),
-  ensurePuzzleDoc: vi.fn((..._args: unknown[]) => Promise.resolve()),
+  ensurePuzzleDoc: vi.fn((...args: unknown[]) => {
+    void args;
+    return Promise.resolve();
+  }),
   requireDb: vi.fn(() => ({ __db: true })),
 }));
 
@@ -122,12 +125,16 @@ describe('cacheDailyPuzzles', () => {
     expect(['easy', 'normal', 'hard'].map(d => docData[d])).toContain(docData.random);
   });
 
-  it('skips writing dailyPuzzles/{date} when it already exists', async () => {
+  it('skips all generation and writes when dailyPuzzles/{date} already exists', async () => {
     mocks.getDoc.mockResolvedValue({ exists: () => true });
 
     const { cacheDailyPuzzles } = await import('./dailyPuzzle');
     await cacheDailyPuzzles('2026-07-17');
 
+    // The existence check must run before any puzzle generation/doc-creation
+    // work — see PR #23 Copilot review: checking last meant every call paid
+    // for 4 puzzle generations + transactions even once a date was cached.
+    expect(mocks.ensurePuzzleDoc).not.toHaveBeenCalled();
     expect(mocks.setDoc).not.toHaveBeenCalled();
   });
 

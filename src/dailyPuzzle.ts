@@ -65,12 +65,21 @@ function isPermissionDenied(err: unknown): boolean {
 // generateDailyPuzzle above). This just ensures the puzzles/{puzzleId} docs
 // for today exist (for stats, same as any other puzzle) and that
 // dailyPuzzles/{date} points at them, so a future admin/listing feature can
-// read "today's puzzles" without regenerating. Safe to call redundantly —
-// firestore.rules make dailyPuzzles/{date} create-once; a second writer's
-// create fails with permission-denied and is treated as success, since
-// the value it would have written is identical by construction.
+// read "today's puzzles" without regenerating. Called on every daily-button
+// click, so the existence check runs first and short-circuits the (real
+// backtracking) generation + Firestore transactions once a date is already
+// cached — flagged by Copilot on PR #23 as otherwise-redundant work.
+// firestore.rules make dailyPuzzles/{date} create-once; if two clients both
+// see it missing and race to create it, the loser's create fails
+// permission-denied and is treated as success, since the value it would
+// have written is identical by construction.
 export async function cacheDailyPuzzles(date: string): Promise<void> {
   await ensureAnonymousAuth();
+
+  const database = requireDb();
+  const ref = doc(database, 'dailyPuzzles', date);
+  const existing = await getDoc(ref);
+  if (existing.exists()) return;
 
   const ids: Record<Difficulty, string> = {} as Record<Difficulty, string>;
   for (const difficulty of ALL_DAILY_DIFFICULTIES) {
@@ -79,11 +88,6 @@ export async function cacheDailyPuzzles(date: string): Promise<void> {
     ids[difficulty] = puzzleId;
     await ensurePuzzleDoc(puzzleId, difficulty, puzzle, puzzleId, { isDaily: true, dailyDate: date });
   }
-
-  const database = requireDb();
-  const ref = doc(database, 'dailyPuzzles', date);
-  const existing = await getDoc(ref);
-  if (existing.exists()) return;
 
   try {
     await setDoc(ref, {
