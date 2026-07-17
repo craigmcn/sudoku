@@ -14,4 +14,14 @@ describe('generatePuzzle', () => {
     const b = generatePuzzle('easy', 2);
     expect(a.solution).not.toEqual(b.solution);
   });
+
+  // 'expert' removes the most cells, so it exercises the seed's path through
+  // countSolutions-driven removal (not just the fill step) the heaviest of
+  // any difficulty — see issue #20.
+  it('produces the same puzzle and solution for the same seed on expert', () => {
+    const a = generatePuzzle('expert', 42);
+    const b = generatePuzzle('expert', 42);
+    expect(a.solution).toEqual(b.solution);
+    expect(a.puzzle).toEqual(b.puzzle);
+  });
 });
