@@ -132,7 +132,10 @@ describe('signInWithGoogle', () => {
     const user = await signInWithGoogle();
 
     expect(user).toBe(linkedUser);
-    expect(mocks.linkWithPopup).toHaveBeenCalledWith(anonUser, expect.any(MockGoogleAuthProvider));
+    expect(mocks.linkWithPopup).toHaveBeenCalledWith(
+      anonUser,
+      expect.any(MockGoogleAuthProvider),
+    );
     expect(mocks.signInWithPopup).not.toHaveBeenCalled();
   });
 
@@ -147,7 +150,9 @@ describe('signInWithGoogle', () => {
     const user = await signInWithGoogle();
 
     expect(user).toBe(realUser);
-    expect(mocks.signInWithCredential).toHaveBeenCalledWith(mocks.auth, { __credential: true });
+    expect(mocks.signInWithCredential).toHaveBeenCalledWith(mocks.auth, {
+      __credential: true,
+    });
   });
 
   it('rethrows credential-already-in-use if no credential can be recovered', async () => {
@@ -175,7 +180,9 @@ describe('signInWithGoogle', () => {
   it('rejects when Firebase Auth is not configured', async () => {
     mocks.auth = undefined;
     const { signInWithGoogle } = await import('./auth');
-    await expect(signInWithGoogle()).rejects.toThrow('Firebase Auth is not configured');
+    await expect(signInWithGoogle()).rejects.toThrow(
+      'Firebase Auth is not configured',
+    );
   });
 });
 
@@ -189,7 +196,9 @@ describe('sendSignInLink', () => {
       'player@example.com',
       expect.objectContaining({ handleCodeInApp: true }),
     );
-    expect(window.localStorage.getItem('sudoku-email-link-address')).toBe('player@example.com');
+    expect(window.localStorage.getItem('sudoku-email-link-address')).toBe(
+      'player@example.com',
+    );
   });
 
   it('rejects when Firebase Auth is not configured', async () => {
@@ -201,10 +210,16 @@ describe('sendSignInLink', () => {
   });
 });
 
+// Points the (happy-dom) page at a URL shaped like a real Firebase
+// email-link redirect, so completeEmailLinkSignInIfPresent's URL pre-check
+// (looksLikeEmailSignInLink) lets the call through to the mocked SDK calls.
+function setEmailSignInLinkUrl(): void {
+  window.history.replaceState(null, '', '/?mode=signIn&oobCode=test-code');
+}
+
 describe('completeEmailLinkSignInIfPresent', () => {
   it('resolves null and does nothing when the URL is not a sign-in link', async () => {
-    mocks.isSignInWithEmailLink.mockReturnValue(false);
-
+    // beforeEach leaves the URL at plain '/' — no mode/oobCode params.
     const { completeEmailLinkSignInIfPresent } = await import('./auth');
     const user = await completeEmailLinkSignInIfPresent();
 
@@ -213,8 +228,19 @@ describe('completeEmailLinkSignInIfPresent', () => {
     expect(mocks.signInWithEmailLink).not.toHaveBeenCalled();
   });
 
+  it('resolves null without touching Firebase when the URL is not a sign-in link, even if Firebase is not configured', async () => {
+    mocks.auth = undefined;
+
+    const { completeEmailLinkSignInIfPresent } = await import('./auth');
+    await expect(completeEmailLinkSignInIfPresent()).resolves.toBeNull();
+  });
+
   it('links the anonymous session using the stored email', async () => {
-    window.localStorage.setItem('sudoku-email-link-address', 'player@example.com');
+    setEmailSignInLinkUrl();
+    window.localStorage.setItem(
+      'sudoku-email-link-address',
+      'player@example.com',
+    );
     const anonUser = { uid: 'anon-uid', isAnonymous: true };
     mocks.auth = { currentUser: anonUser };
     mocks.isSignInWithEmailLink.mockReturnValue(true);
@@ -228,14 +254,19 @@ describe('completeEmailLinkSignInIfPresent', () => {
       'player@example.com',
       expect.any(String),
     );
-    expect(mocks.linkWithCredential).toHaveBeenCalledWith(anonUser, { __credential: true });
+    expect(mocks.linkWithCredential).toHaveBeenCalledWith(anonUser, {
+      __credential: true,
+    });
     expect(window.localStorage.getItem('sudoku-email-link-address')).toBeNull();
   });
 
   it('prompts for the email when none was stored', async () => {
+    setEmailSignInLinkUrl();
     mocks.isSignInWithEmailLink.mockReturnValue(true);
     mocks.signInWithEmailLink.mockResolvedValue({ user: realUser });
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('typed@example.com');
+    const promptSpy = vi
+      .spyOn(window, 'prompt')
+      .mockReturnValue('typed@example.com');
 
     const { completeEmailLinkSignInIfPresent } = await import('./auth');
     const user = await completeEmailLinkSignInIfPresent();
@@ -250,6 +281,7 @@ describe('completeEmailLinkSignInIfPresent', () => {
   });
 
   it('resolves null without signing in when the prompt is cancelled', async () => {
+    setEmailSignInLinkUrl();
     mocks.isSignInWithEmailLink.mockReturnValue(true);
     vi.spyOn(window, 'prompt').mockReturnValue(null);
 
@@ -262,7 +294,11 @@ describe('completeEmailLinkSignInIfPresent', () => {
   });
 
   it('signs in directly when there is no anonymous session to link', async () => {
-    window.localStorage.setItem('sudoku-email-link-address', 'player@example.com');
+    setEmailSignInLinkUrl();
+    window.localStorage.setItem(
+      'sudoku-email-link-address',
+      'player@example.com',
+    );
     mocks.auth = { currentUser: null };
     mocks.isSignInWithEmailLink.mockReturnValue(true);
     mocks.signInWithEmailLink.mockResolvedValue({ user: realUser });
@@ -275,7 +311,11 @@ describe('completeEmailLinkSignInIfPresent', () => {
   });
 
   it('falls back to signing into the existing account on credential-already-in-use', async () => {
-    window.localStorage.setItem('sudoku-email-link-address', 'player@example.com');
+    setEmailSignInLinkUrl();
+    window.localStorage.setItem(
+      'sudoku-email-link-address',
+      'player@example.com',
+    );
     const anonUser = { uid: 'anon-uid', isAnonymous: true };
     mocks.auth = { currentUser: anonUser };
     mocks.isSignInWithEmailLink.mockReturnValue(true);
@@ -286,11 +326,17 @@ describe('completeEmailLinkSignInIfPresent', () => {
     const user = await completeEmailLinkSignInIfPresent();
 
     expect(user).toBe(realUser);
-    expect(mocks.signInWithCredential).toHaveBeenCalledWith(mocks.auth, { __credential: true });
+    expect(mocks.signInWithCredential).toHaveBeenCalledWith(mocks.auth, {
+      __credential: true,
+    });
   });
 
   it('clears the stored email and the URL after completing sign-in', async () => {
-    window.localStorage.setItem('sudoku-email-link-address', 'player@example.com');
+    setEmailSignInLinkUrl();
+    window.localStorage.setItem(
+      'sudoku-email-link-address',
+      'player@example.com',
+    );
     mocks.auth = { currentUser: null };
     mocks.isSignInWithEmailLink.mockReturnValue(true);
     mocks.signInWithEmailLink.mockResolvedValue({ user: realUser });
@@ -303,12 +349,45 @@ describe('completeEmailLinkSignInIfPresent', () => {
     expect(replaceStateSpy).toHaveBeenCalled();
   });
 
-  it('rejects when Firebase Auth is not configured', async () => {
+  it('rejects when Firebase Auth is not configured but the URL looks like a sign-in link', async () => {
+    setEmailSignInLinkUrl();
     mocks.auth = undefined;
     const { completeEmailLinkSignInIfPresent } = await import('./auth');
     await expect(completeEmailLinkSignInIfPresent()).rejects.toThrow(
       'Firebase Auth is not configured',
     );
+  });
+});
+
+describe('looksLikeEmailSignInLink', () => {
+  it('returns true for a URL with mode=signIn and an oobCode', async () => {
+    const { looksLikeEmailSignInLink } = await import('./auth');
+    expect(
+      looksLikeEmailSignInLink(
+        'https://example.com/?mode=signIn&oobCode=abc123',
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false for a plain URL', async () => {
+    const { looksLikeEmailSignInLink } = await import('./auth');
+    expect(looksLikeEmailSignInLink('https://example.com/')).toBe(false);
+  });
+
+  it('returns false when oobCode is missing', async () => {
+    const { looksLikeEmailSignInLink } = await import('./auth');
+    expect(looksLikeEmailSignInLink('https://example.com/?mode=signIn')).toBe(
+      false,
+    );
+  });
+
+  it('returns false when mode is not signIn', async () => {
+    const { looksLikeEmailSignInLink } = await import('./auth');
+    expect(
+      looksLikeEmailSignInLink(
+        'https://example.com/?mode=resetPassword&oobCode=abc123',
+      ),
+    ).toBe(false);
   });
 });
 
@@ -324,7 +403,9 @@ describe('signOutUser', () => {
   it('rejects when Firebase Auth is not configured', async () => {
     mocks.auth = undefined;
     const { signOutUser } = await import('./auth');
-    await expect(signOutUser()).rejects.toThrow('Firebase Auth is not configured');
+    await expect(signOutUser()).rejects.toThrow(
+      'Firebase Auth is not configured',
+    );
     expect(mocks.signOut).not.toHaveBeenCalled();
     expect(mocks.resetAnonymousAuthCache).not.toHaveBeenCalled();
   });

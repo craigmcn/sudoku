@@ -42,7 +42,9 @@ function isCredentialAlreadyInUse(err: unknown): err is AuthError {
 // this is called unconditionally at page boot (not from a user action), so
 // it no-ops instead of throwing when Firebase isn't configured — matching
 // firebase.ts's own "degrade gracefully" behavior rather than crashing init.
-export function onAuthChange(callback: (user: User | null) => void): () => void {
+export function onAuthChange(
+  callback: (user: User | null) => void,
+): () => void {
   if (!auth) return () => {};
   return onAuthStateChanged(auth, callback);
 }
@@ -91,9 +93,26 @@ export async function sendSignInLink(email: string): Promise<void> {
   window.localStorage.setItem(EMAIL_LINK_STORAGE_KEY, email);
 }
 
+// Lightweight, Auth-instance-free check mirroring what Firebase's own
+// isSignInWithEmailLink() looks for (a mode=signIn redirect with an
+// oobCode). isSignInWithEmailLink() itself requires an Auth instance, so it
+// can't be called at all when Firebase isn't configured — this lets
+// completeEmailLinkSignInIfPresent() below tell "definitely not a sign-in
+// link" apart from "Firebase isn't configured" without ever touching
+// Firebase for the overwhelming majority of page loads that are neither.
+export function looksLikeEmailSignInLink(url: string): boolean {
+  const params = new URL(url).searchParams;
+  return params.get('mode') === 'signIn' && !!params.get('oobCode');
+}
+
 // Called on page load. Resolves null (no-op) if the current URL isn't a
-// sign-in link. Same anonymous-linking behavior as signInWithGoogle above.
+// sign-in link — checked before requiring Firebase to be configured (see
+// looksLikeEmailSignInLink above), so this never warns on an ordinary page
+// load just because Firebase isn't set up; issue flagged by Copilot on
+// PR #28. Same anonymous-linking behavior as signInWithGoogle above.
 export async function completeEmailLinkSignInIfPresent(): Promise<User | null> {
+  if (!looksLikeEmailSignInLink(window.location.href)) return null;
+
   const instance = requireAuthConfigured();
   if (!isSignInWithEmailLink(instance, window.location.href)) return null;
 
@@ -106,18 +125,28 @@ export async function completeEmailLinkSignInIfPresent(): Promise<User | null> {
 
   try {
     if (current?.isAnonymous) {
-      const credential = EmailAuthProvider.credentialWithLink(email, window.location.href);
+      const credential = EmailAuthProvider.credentialWithLink(
+        email,
+        window.location.href,
+      );
       const result = await linkWithCredential(current, credential);
       return result.user;
     }
-    const result = await signInWithEmailLink(instance, email, window.location.href);
+    const result = await signInWithEmailLink(
+      instance,
+      email,
+      window.location.href,
+    );
     return result.user;
   } catch (err) {
     if (!isCredentialAlreadyInUse(err)) throw err;
     // Same fallback as signInWithGoogle: this email is already tied to a
     // different Firebase user, so sign into that account instead of
     // merging — the current anonymous session's stats are abandoned.
-    const credential = EmailAuthProvider.credentialWithLink(email, window.location.href);
+    const credential = EmailAuthProvider.credentialWithLink(
+      email,
+      window.location.href,
+    );
     const result = await signInWithCredential(instance, credential);
     return result.user;
   } finally {
