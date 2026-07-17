@@ -2,7 +2,10 @@ import { defineConfig, configDefaults } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    environment: 'node',
+    // happy-dom (not 'node') so tests can exercise browser globals — needed
+    // for auth.ts's window.localStorage/location/prompt use in the
+    // email-link sign-in flow, which must survive a full page reload.
+    environment: 'happy-dom',
     exclude: [...configDefaults.exclude, 'e2e/**'],
     coverage: {
       provider: 'v8',

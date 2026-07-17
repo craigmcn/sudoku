@@ -138,6 +138,22 @@ body {
   cursor: default;
 }
 
+.signed-in-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.signed-in-label {
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--grey700);
+}
+
 /* ── Difficulty nav ──────────────────────────────────────────────────────── */
 
 .difficulty-nav {
@@ -448,7 +464,8 @@ body {
   margin-bottom: 0.25rem;
 }
 
-.modal-icon-pause {
+.modal-icon-pause,
+.modal-icon-neutral {
   background: var(--btn-hover);
   color: var(--grey700);
 }
@@ -462,6 +479,45 @@ body {
   font-size: 0.875rem;
   color: var(--grey600);
   margin-bottom: 0.5rem;
+}
+
+/* Sign-in modal */
+.sign-in-copy {
+  font-size: 0.875rem;
+  color: var(--grey600);
+  margin-top: -0.25rem;
+}
+
+.new-game-btn i {
+  margin-right: 0.5rem;
+}
+
+.email-link-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.email-link-input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 0.125rem solid var(--btn-border);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  background: var(--btn-bg);
+  color: var(--grey700);
+}
+
+.email-link-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.sign-in-status {
+  min-height: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--grey600);
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */

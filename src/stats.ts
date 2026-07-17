@@ -51,6 +51,15 @@ export function ensureAnonymousAuth(): Promise<User> {
   return authReady;
 }
 
+// After signOut() (see src/auth.ts), auth.currentUser goes null but this
+// module's cached `authReady` still resolves with the old (now-invalid)
+// user reference forever, since it's never re-evaluated once resolved.
+// Called by signOutUser() so the next ensureAnonymousAuth() call re-runs
+// and signs in a fresh anonymous session instead of reusing the stale one.
+export function resetAnonymousAuthCache(): void {
+  authReady = null;
+}
+
 // Called when a puzzle is first played. Creates the puzzles/{puzzleId} doc
 // on first sight (all counters start at 0, per firestore.rules) and then
 // bumps timesPlayed by 1 — the create and the increment are separate writes
