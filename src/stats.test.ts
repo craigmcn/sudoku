@@ -9,7 +9,8 @@ const mocks = vi.hoisted(() => ({
   runTransaction: vi.fn(),
   serverTimestamp: vi.fn(() => '__serverTimestamp__'),
   updateDoc: vi.fn(),
-  auth: { currentUser: null as { uid: string } | null },
+  auth: { __auth: true } as { __auth: true } | undefined,
+  db: { __db: true } as { __db: true } | undefined,
 }));
 
 vi.mock('firebase/auth', () => ({
@@ -26,26 +27,51 @@ vi.mock('firebase/firestore', () => ({
 }));
 
 vi.mock('./firebase', () => ({
-  auth: mocks.auth,
-  db: { __db: true },
+  get auth() {
+    return mocks.auth;
+  },
+  get db() {
+    return mocks.db;
+  },
 }));
 
 const testUser = { uid: 'test-uid' };
 
 const testBoard: Board = Array.from({ length: 9 }, () => Array(9).fill(null));
 
+// Simulates a listener that fires once per queued emission, in order, each
+// on its own microtask — matching real onAuthStateChanged, which always
+// calls back asynchronously (never synchronously within its own call).
+function mockAuthEmissions(...emissions: Array<typeof testUser | null>) {
+  mocks.onAuthStateChanged.mockImplementation((_auth, next, error) => {
+    (async () => {
+      for (const emission of emissions) {
+        await Promise.resolve();
+        next(emission);
+      }
+    })().catch(error);
+    return vi.fn();
+  });
+}
+
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
-  mocks.auth.currentUser = null;
+  mocks.auth = { __auth: true };
+  mocks.db = { __db: true };
 });
 
 describe('ensureAnonymousAuth', () => {
-  it('signs in anonymously and resolves once a user is emitted', async () => {
-    mocks.onAuthStateChanged.mockImplementation((_auth, callback) => {
-      queueMicrotask(() => callback(testUser));
-      return vi.fn();
-    });
+  it('rejects immediately when Firebase Auth failed to initialize', async () => {
+    mocks.auth = undefined;
+    const { ensureAnonymousAuth } = await import('./stats');
+
+    await expect(ensureAnonymousAuth()).rejects.toThrow('Firebase Auth is not configured');
+    expect(mocks.onAuthStateChanged).not.toHaveBeenCalled();
+  });
+
+  it('signs in anonymously when the first emission has no persisted user', async () => {
+    mockAuthEmissions(null, testUser);
 
     const { ensureAnonymousAuth } = await import('./stats');
     const user = await ensureAnonymousAuth();
@@ -54,39 +80,46 @@ describe('ensureAnonymousAuth', () => {
     expect(mocks.signInAnonymously).toHaveBeenCalledTimes(1);
   });
 
-  it('skips signInAnonymously when a user is already signed in', async () => {
-    mocks.auth.currentUser = testUser;
-    mocks.onAuthStateChanged.mockImplementation((_auth, callback) => {
-      queueMicrotask(() => callback(testUser));
-      return vi.fn();
-    });
+  it('resolves with the persisted user without signing in again', async () => {
+    mockAuthEmissions(testUser);
 
     const { ensureAnonymousAuth } = await import('./stats');
-    await ensureAnonymousAuth();
+    const user = await ensureAnonymousAuth();
 
+    expect(user).toBe(testUser);
     expect(mocks.signInAnonymously).not.toHaveBeenCalled();
   });
 
   it('reuses the in-flight/resolved promise on subsequent calls', async () => {
-    mocks.onAuthStateChanged.mockImplementation((_auth, callback) => {
-      queueMicrotask(() => callback(testUser));
-      return vi.fn();
-    });
+    mockAuthEmissions(testUser);
 
     const { ensureAnonymousAuth } = await import('./stats');
     await ensureAnonymousAuth();
     await ensureAnonymousAuth();
 
-    expect(mocks.signInAnonymously).toHaveBeenCalledTimes(1);
+    expect(mocks.onAuthStateChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not cache a rejection — a later call retries', async () => {
+    mocks.onAuthStateChanged.mockImplementationOnce((_auth, _next, error) => {
+      queueMicrotask(() => error(new Error('listener error')));
+      return vi.fn();
+    });
+
+    const { ensureAnonymousAuth } = await import('./stats');
+    await expect(ensureAnonymousAuth()).rejects.toThrow('listener error');
+
+    mockAuthEmissions(testUser);
+    const user = await ensureAnonymousAuth();
+
+    expect(user).toBe(testUser);
+    expect(mocks.onAuthStateChanged).toHaveBeenCalledTimes(2);
   });
 });
 
 describe('recordPuzzleStart', () => {
   beforeEach(() => {
-    mocks.onAuthStateChanged.mockImplementation((_auth, callback) => {
-      queueMicrotask(() => callback(testUser));
-      return vi.fn();
-    });
+    mockAuthEmissions(testUser);
   });
 
   it('creates the doc when it does not exist, then increments timesPlayed', async () => {
@@ -130,14 +163,22 @@ describe('recordPuzzleStart', () => {
       timesPlayed: { __increment: 1 },
     });
   });
+
+  it('rejects without writing when Firestore failed to initialize', async () => {
+    mocks.db = undefined;
+
+    const { recordPuzzleStart } = await import('./stats');
+    await expect(recordPuzzleStart('abc123', 'easy', testBoard, 'abc123')).rejects.toThrow(
+      'Firebase Firestore is not configured',
+    );
+
+    expect(mocks.runTransaction).not.toHaveBeenCalled();
+  });
 });
 
 describe('recordPuzzleCompletion', () => {
   beforeEach(() => {
-    mocks.onAuthStateChanged.mockImplementation((_auth, callback) => {
-      queueMicrotask(() => callback(testUser));
-      return vi.fn();
-    });
+    mockAuthEmissions(testUser);
   });
 
   it('increments completions and adds elapsed time', async () => {

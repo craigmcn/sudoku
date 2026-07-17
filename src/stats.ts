@@ -1,5 +1,12 @@
 import { onAuthStateChanged, signInAnonymously, type User } from 'firebase/auth';
-import { doc, increment, runTransaction, serverTimestamp, updateDoc } from 'firebase/firestore';
+import {
+  doc,
+  increment,
+  runTransaction,
+  serverTimestamp,
+  updateDoc,
+  type Firestore,
+} from 'firebase/firestore';
 import type { Difficulty } from './generator';
 import { auth, db } from './firebase';
 import { Board } from './solver';
@@ -11,28 +18,57 @@ function boardToRows(board: Board): string[] {
   return board.map((row) => row.map((cell) => cell ?? 0).join(''));
 }
 
+// `db` is undefined when Firebase failed to initialize (see src/firebase.ts)
+// — narrows the type so callers don't need non-null assertions, and gives a
+// clear rejection reason instead of a TypeError deep in the firestore SDK.
+function requireDb(): Firestore {
+  if (!db) throw new Error('Firebase Firestore is not configured');
+  return db;
+}
+
 let authReady: Promise<User> | null = null;
 
 // Resolves once a stable (anonymous, for now) Firebase uid exists for this
 // browser. Idempotent and safe to call from multiple places — subsequent
 // calls reuse the in-flight/resolved promise instead of re-signing-in.
 export function ensureAnonymousAuth(): Promise<User> {
+  if (!auth) return Promise.reject(new Error('Firebase Auth is not configured'));
   if (authReady) return authReady;
+
+  const authInstance = auth;
   authReady = new Promise<User>((resolve, reject) => {
-    const unsubscribe = onAuthStateChanged(
-      auth,
+    let unsubscribe: (() => void) | undefined;
+    unsubscribe = onAuthStateChanged(
+      authInstance,
       (user) => {
         if (user) {
-          unsubscribe();
+          unsubscribe?.();
           resolve(user);
+        } else {
+          // First emission confirms there's no persisted session (rather
+          // than guessing from authInstance.currentUser, which is still
+          // null here even when a persisted session exists — restoring it
+          // is itself async). Signing in now surfaces the new user through
+          // this same listener's next emission.
+          signInAnonymously(authInstance).catch((err: unknown) => {
+            unsubscribe?.();
+            reject(err);
+          });
         }
       },
-      reject,
+      (err) => {
+        unsubscribe?.();
+        reject(err);
+      },
     );
-    if (!auth.currentUser) {
-      signInAnonymously(auth).catch(reject);
-    }
   });
+
+  // Don't cache a rejection forever — let the next call retry instead of
+  // replaying the same failure for the rest of the page session.
+  authReady.catch(() => {
+    authReady = null;
+  });
+
   return authReady;
 }
 
@@ -48,8 +84,9 @@ export async function recordPuzzleStart(
   solutionHash: string,
 ): Promise<void> {
   await ensureAnonymousAuth();
-  const ref = doc(db, 'puzzles', puzzleId);
-  await runTransaction(db, async (tx) => {
+  const database = requireDb();
+  const ref = doc(database, 'puzzles', puzzleId);
+  await runTransaction(database, async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists()) {
       tx.set(ref, {
@@ -72,7 +109,7 @@ export async function recordPuzzleStart(
 // runaway or malicious jump.
 export async function recordPuzzleCompletion(puzzleId: string, elapsedMs: number): Promise<void> {
   await ensureAnonymousAuth();
-  const ref = doc(db, 'puzzles', puzzleId);
+  const ref = doc(requireDb(), 'puzzles', puzzleId);
   await updateDoc(ref, {
     completions: increment(1),
     totalPlayTimeMs: increment(elapsedMs),
