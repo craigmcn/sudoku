@@ -1,0 +1,65 @@
+rules_version = '2';
+
+// Not deployed via CLI yet (no Firebase CLI wiring in this repo) — paste this
+// into Firebase Console → Firestore Database → Rules → Publish. Keep this
+// file as the source of truth and re-paste it whenever it changes.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // puzzles/{puzzleId} — puzzleId is hashSolution() from src/puzzleId.ts.
+    // Anyone signed in (including anonymous, see #17) may create a puzzle
+    // doc the first time it's generated, and may bump the play counters on
+    // an existing one — nothing else. `create` only ever matches a doc that
+    // doesn't already exist, so a duplicate generation naturally falls
+    // through to the `update` (counter-only) branch instead.
+    //
+    // `puzzle` must be 9 strings (one per row, 9 chars each, '0' for blank)
+    // rather than a 9x9 nested array — Firestore rejects nested arrays
+    // outright (confirmed via smoke test against this project). `is list`
+    // below passes either way; the row-strings shape is enforced by the
+    // writer, not these rules.
+    match /puzzles/{puzzleId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.difficulty in ['easy', 'normal', 'hard', 'expert']
+        && request.resource.data.puzzle is list
+        && request.resource.data.solutionHash is string
+        && request.resource.data.timesPlayed == 0
+        && request.resource.data.totalPlayTimeMs == 0
+        && request.resource.data.completions == 0
+        && request.resource.data.isDaily is bool;
+
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['timesPlayed', 'totalPlayTimeMs', 'completions'])
+        && request.resource.data.timesPlayed >= resource.data.timesPlayed
+        && request.resource.data.totalPlayTimeMs >= resource.data.totalPlayTimeMs
+        && request.resource.data.completions >= resource.data.completions;
+
+      allow delete: if false;
+    }
+
+    // dailyPuzzles/{yyyy-mm-dd} — created once, by whichever client asks for
+    // that date first; immutable after that so everyone sees the same
+    // puzzle for the day.
+    match /dailyPuzzles/{date} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['easy', 'normal', 'hard', 'expert', 'random'])
+        && request.resource.data.easy is string
+        && request.resource.data.normal is string
+        && request.resource.data.hard is string
+        && request.resource.data.expert is string
+        && request.resource.data.random is string;
+
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

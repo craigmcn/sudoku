@@ -108,6 +108,7 @@ yarn test:e2e      # Playwright, starts its own dev server
 - **Anonymous auth (`signInAnonymously`) before real login** — split into its own issue (#17) rather than bundled with #12, so play stats have a stable uid to attach to immediately, and can be merged into a real account once #12's login lands, rather than waiting on login to exist first.
 - **Client-side doc creation, not a `beforeUserCreated` trigger** — mirrors the `files` repo's Firestore-doc-per-user pattern but avoids the paid Blaze plan requirement, consistent with the storage-backend research already on file (see "Storage backend research done" note above).
 - **Display-facing puzzle numbering is explicitly deferred** — the content hash is sufficient for dedup/stats; a separate human-facing sequence number (if wanted) can be layered on later without touching the identity scheme.
+- **`puzzle` is stored as 9 row-strings, not a 9×9 nested array** — Firestore rejects nested arrays outright (`Nested arrays are not supported`), confirmed by writing a real doc against the `sudoku-craigmcn` project during #16. Each row is a 9-character string (`'0'` for blank); `Board`'s `(number | null)[][]` shape is only ever a client-side/solver concept, never written to Firestore as-is.
 
 **Outstanding / next:**
 
