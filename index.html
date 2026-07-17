@@ -30,6 +30,15 @@
         <button id="btnPause" class="pause-btn" disabled aria-label="Pause timer">
           <i class="fa-sharp fa-light fa-pause"></i>
         </button>
+        <button id="btnSignIn" class="pause-btn" aria-label="Sign in">
+          <i class="fa-sharp fa-light fa-user"></i>
+        </button>
+        <div id="signedInInfo" class="signed-in-info hidden">
+          <span id="signedInLabel" class="signed-in-label"></span>
+          <button id="btnSignOut" class="pause-btn" aria-label="Sign out">
+            <i class="fa-sharp fa-light fa-arrow-right-from-bracket"></i>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -104,6 +113,33 @@
         <div class="modal-icon modal-icon-pause"><i class="fa-sharp fa-light fa-pause"></i></div>
         <h2>Paused</h2>
         <button id="btnResume" class="new-game-btn">Resume</button>
+      </div>
+    </div>
+
+    <!-- Sign-in overlay -->
+    <div id="signInOverlay" class="overlay hidden">
+      <div class="modal">
+        <div class="modal-icon modal-icon-neutral"><i class="fa-sharp fa-light fa-user"></i></div>
+        <h2>Sign in</h2>
+        <p class="sign-in-copy">Save your stats to an account so they follow you across devices.</p>
+        <button id="btnGoogleSignIn" class="new-game-btn">
+          <i class="fa-sharp fa-light fa-right-to-bracket"></i>
+          Continue with Google
+        </button>
+        <div class="email-link-form">
+          <input
+            id="emailLinkInput"
+            type="email"
+            inputmode="email"
+            autocomplete="email"
+            placeholder="you@example.com"
+            aria-label="Email address"
+            class="email-link-input"
+          />
+          <button id="btnEmailLinkSignIn" class="new-game-btn">Email me a sign-in link</button>
+        </div>
+        <p id="signInStatus" class="sign-in-status" role="status"></p>
+        <button id="btnCloseSignIn" class="action-btn">Cancel</button>
       </div>
     </div>
   </div>

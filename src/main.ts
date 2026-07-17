@@ -13,6 +13,14 @@ import {
 } from './game';
 import { recordPuzzleCompletion, recordPuzzleStart } from './stats';
 import { cacheDailyPuzzles, dailyRandomDifficulty, dailySeed, todayUtc } from './dailyPuzzle';
+import {
+  completeEmailLinkSignInIfPresent,
+  onAuthChange,
+  sendSignInLink,
+  signInWithGoogle,
+  signOutUser,
+} from './auth';
+import type { User as FirebaseUser } from 'firebase/auth';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
@@ -34,6 +42,16 @@ const btnPlayAgain = document.getElementById('btnPlayAgain')!;
 const numpadEl = document.getElementById('numpad')!;
 const btnDaily = document.getElementById('btnDaily')!;
 const btnDailyRandom = document.getElementById('btnDailyRandom')!;
+const btnSignIn = document.getElementById('btnSignIn')!;
+const signedInInfo = document.getElementById('signedInInfo')!;
+const signedInLabel = document.getElementById('signedInLabel')!;
+const btnSignOut = document.getElementById('btnSignOut')!;
+const signInOverlay = document.getElementById('signInOverlay')!;
+const btnGoogleSignIn = document.getElementById('btnGoogleSignIn')!;
+const emailLinkInput = document.getElementById('emailLinkInput')! as HTMLInputElement;
+const btnEmailLinkSignIn = document.getElementById('btnEmailLinkSignIn')!;
+const signInStatusEl = document.getElementById('signInStatus')!;
+const btnCloseSignIn = document.getElementById('btnCloseSignIn')!;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -317,6 +335,62 @@ function handleVictory(): void {
   }
 }
 
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+function renderAuthState(user: FirebaseUser | null): void {
+  const signedIn = !!user && !user.isAnonymous;
+  btnSignIn.classList.toggle('hidden', signedIn);
+  signedInInfo.classList.toggle('hidden', !signedIn);
+  if (signedIn) {
+    signedInLabel.textContent = user!.displayName || user!.email || 'Signed in';
+  }
+}
+
+function openSignInOverlay(): void {
+  signInStatusEl.textContent = '';
+  emailLinkInput.value = '';
+  signInOverlay.classList.remove('hidden');
+}
+
+function closeSignInOverlay(): void {
+  signInOverlay.classList.add('hidden');
+}
+
+async function handleGoogleSignIn(): Promise<void> {
+  signInStatusEl.textContent = '';
+  try {
+    await signInWithGoogle();
+    closeSignInOverlay();
+  } catch (err) {
+    signInStatusEl.textContent = 'Sign-in failed. Please try again.';
+    console.warn('Google sign-in failed:', err);
+  }
+}
+
+async function handleEmailLinkSignIn(): Promise<void> {
+  const email = emailLinkInput.value.trim();
+  if (!email) {
+    signInStatusEl.textContent = 'Enter an email address.';
+    return;
+  }
+  signInStatusEl.textContent = '';
+  try {
+    await sendSignInLink(email);
+    signInStatusEl.textContent = 'Check your email for a sign-in link.';
+  } catch (err) {
+    signInStatusEl.textContent = 'Could not send sign-in link. Please try again.';
+    console.warn('Failed to send sign-in link:', err);
+  }
+}
+
+async function handleSignOut(): Promise<void> {
+  try {
+    await signOutUser();
+  } catch (err) {
+    console.warn('Sign-out failed:', err);
+  }
+}
+
 // ── Event handlers ────────────────────────────────────────────────────────────
 
 function handleCellClick(row: number, col: number): void {
@@ -466,6 +540,21 @@ function init(): void {
   btnResume.addEventListener('click', () => handlePauseToggle());
 
   document.addEventListener('keydown', handleKeydown);
+
+  btnSignIn.addEventListener('click', openSignInOverlay);
+  btnCloseSignIn.addEventListener('click', closeSignInOverlay);
+  btnGoogleSignIn.addEventListener('click', () => handleGoogleSignIn());
+  btnEmailLinkSignIn.addEventListener('click', () => handleEmailLinkSignIn());
+  btnSignOut.addEventListener('click', () => handleSignOut());
+
+  onAuthChange(renderAuthState);
+  // Completes a passwordless sign-in if the page was just opened from an
+  // emailed link (see src/auth.ts) — a no-op otherwise. renderAuthState
+  // above already picks up the resulting signed-in state via onAuthChange,
+  // so nothing further is needed here on success.
+  completeEmailLinkSignInIfPresent().catch((err: unknown) =>
+    console.warn('Failed to complete email-link sign-in:', err),
+  );
 
   startNewGame();
 }
