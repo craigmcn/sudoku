@@ -1,6 +1,6 @@
-import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, type Firestore } from 'firebase/firestore';
 
 // Config values are read from Vite env vars (VITE_FIREBASE_*, set in
 // .env.local locally and in Netlify's environment variables for deploys).
@@ -15,10 +15,23 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Guards against "Firebase App named '[DEFAULT]' already exists" if this
-// module is ever evaluated more than once in the same JS context (multiple
-// Vitest test files importing it, HMR edge cases, etc.).
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+export let auth: Auth | undefined;
+export let db: Firestore | undefined;
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+// Environments without VITE_FIREBASE_* set (CI, a fresh checkout with no
+// .env.local) leave firebaseConfig full of undefined values. getAuth() then
+// throws synchronously ("auth/invalid-api-key"), which — left uncaught —
+// crashes this module and every module that imports it (main.ts included),
+// leaving the whole game unplayable. Puzzle stats are optional; the game
+// itself is not, so a missing/invalid config degrades to "stats disabled"
+// rather than a blank page.
+try {
+  // Guards against "Firebase App named '[DEFAULT]' already exists" if this
+  // module is ever evaluated more than once in the same JS context (multiple
+  // Vitest test files importing it, HMR edge cases, etc.).
+  const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} catch (err) {
+  console.warn('Firebase failed to initialize; puzzle stats will not be recorded.', err);
+}

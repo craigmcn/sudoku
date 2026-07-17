@@ -51,6 +51,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
   return {
     puzzle,
     solution: SOLUTION.map(r => [...r]),
+    puzzleId: 'test-puzzle-id',
     userBoard: puzzle.map(r => [...r]),
     given,
     selected: null,

@@ -1,11 +1,15 @@
 import { Board } from './solver';
 import { Difficulty, generatePuzzle } from './generator';
+import { hashSolution } from './puzzleId';
 
 export type { Difficulty };
 
 export interface GameState {
   puzzle: Board;
   solution: Board;
+  // Content hash of `solution`, used to key the puzzles/{puzzleId} Firestore
+  // doc for dedup/stats — see src/puzzleId.ts and src/stats.ts.
+  puzzleId: string;
   userBoard: Board;
   given: boolean[][];
   selected: { row: number; col: number } | null;
@@ -93,6 +97,7 @@ export function createGame(difficulty: Difficulty): GameState {
   return {
     puzzle,
     solution,
+    puzzleId: hashSolution(solution),
     userBoard: cloneBoard(puzzle),
     given,
     selected: null,
