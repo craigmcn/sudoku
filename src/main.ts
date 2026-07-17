@@ -11,6 +11,7 @@ import {
   togglePause,
   getConflicts,
 } from './game';
+import { recordPuzzleCompletion, recordPuzzleStart } from './stats';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,11 @@ const numpadEl = document.getElementById('numpad')!;
 let state: GameState | null = null;
 let difficulty: Difficulty = 'easy';
 let timerInterval: ReturnType<typeof setInterval> | null = null;
+// Guards against recordPuzzleCompletion firing more than once for the same
+// solve — render() can run again after `solved` flips true (e.g. further
+// keydown events before handlers notice), but handleVictory should only
+// report the completion the first time.
+let completionRecorded = false;
 
 // ── Cell elements ─────────────────────────────────────────────────────────────
 
@@ -238,10 +244,15 @@ async function startNewGame(): Promise<void> {
   await new Promise(r => setTimeout(r, 30));
 
   state = createGame(difficulty);
+  completionRecorded = false;
   loadingEl.classList.add('hidden');
   timerEl.textContent = '00:00';
   // Timer stays idle until the first cell is filled — see handleNumInput
   render();
+
+  recordPuzzleStart(state.puzzleId, state.difficulty, state.puzzle, state.puzzleId).catch(
+    (err: unknown) => console.warn('Failed to record puzzle start:', err),
+  );
 }
 
 function handleVictory(): void {
@@ -252,6 +263,13 @@ function handleVictory(): void {
   const diffLabel = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
   solveStatsEl.textContent = `${diffLabel} · ${mm}:${ss} · ${state!.mistakes} mistake${state!.mistakes !== 1 ? 's' : ''}`;
   overlayEl.classList.remove('hidden');
+
+  if (!completionRecorded) {
+    completionRecorded = true;
+    recordPuzzleCompletion(state!.puzzleId, elapsed * 1000).catch((err: unknown) =>
+      console.warn('Failed to record puzzle completion:', err),
+    );
+  }
 }
 
 // ── Event handlers ────────────────────────────────────────────────────────────
