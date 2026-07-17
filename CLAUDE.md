@@ -97,7 +97,7 @@ yarn test:e2e      # Playwright, starts its own dev server
 - Planned the Firebase backend groundwork for Issue #12 (login + per-user stats), split into discrete issues on the [sudoku GitHub Project](https://github.com/users/craigmcn/projects/10):
   - **#13** (updated, now the umbrella/context issue) — problem statement, data model summary, links to the issues below
   - **#15** — seeded PRNG for `generator.ts` + canonical puzzle-ID (content hash of the solved grid) — **implemented**: [src/rng.ts](src/rng.ts) (`mulberry32`), [src/puzzleId.ts](src/puzzleId.ts) (`hashSolution`), `generatePuzzle(difficulty, seed?)` in [src/generator.ts](src/generator.ts); tests in `rng.test.ts`, `puzzleId.test.ts`, `generator.test.ts`
-  - **#16** — Firebase project + Firestore client setup (`src/firebase.ts`, env vars, security rules, `puzzles`/`dailyPuzzles` collections)
+  - **#16** — Firebase project + Firestore client setup — **implemented** (PR #21): real Firebase project `sudoku-craigmcn` created (Firestore + anonymous Auth enabled); [src/firebase.ts](src/firebase.ts) (app/auth/db init, guarded against re-`initializeApp()`), [src/vite-env.d.ts](src/vite-env.d.ts), `.env.local.example`; [firestore.rules](firestore.rules) for `puzzles`/`dailyPuzzles` collections, verified live against the real project (not just typechecked) — valid/invalid creates, counter updates, bounded deltas, type checks
   - **#17** — anonymous play identity (`signInAnonymously`) + play-stats tracking (times played, time played, completions)
   - **#18** — daily puzzle: one deterministic puzzle per difficulty per date, plus a shared "daily random" pick from easy/normal/hard
 
@@ -108,11 +108,14 @@ yarn test:e2e      # Playwright, starts its own dev server
 - **Anonymous auth (`signInAnonymously`) before real login** — split into its own issue (#17) rather than bundled with #12, so play stats have a stable uid to attach to immediately, and can be merged into a real account once #12's login lands, rather than waiting on login to exist first.
 - **Client-side doc creation, not a `beforeUserCreated` trigger** — mirrors the `files` repo's Firestore-doc-per-user pattern but avoids the paid Blaze plan requirement, consistent with the storage-backend research already on file (see "Storage backend research done" note above).
 - **Display-facing puzzle numbering is explicitly deferred** — the content hash is sufficient for dedup/stats; a separate human-facing sequence number (if wanted) can be layered on later without touching the identity scheme.
+- **`puzzle` is stored as 9 row-strings, not a 9×9 nested array** — Firestore rejects nested arrays outright (`Nested arrays are not supported`), confirmed by writing a real doc against the `sudoku-craigmcn` project during #16. Each row is a 9-character string (`'0'` for blank); `Board`'s `(number | null)[][]` shape is only ever a client-side/solver concept, never written to Firestore as-is.
+- **`firestore.rules` counter updates are bounded, not just monotonic** — `timesPlayed`/`completions` may increase by at most 1 per write, `totalPlayTimeMs` by at most 6h (21600000ms); added after Copilot's PR #21 review flagged that `>=`-only checks let a client jump a counter to an arbitrary value in one write, not just increment it. Also added `is int` checks and a `hasOnly()` key restriction on `puzzles` create (a client could previously attach arbitrary extra fields). `puzzleId`-not-validated-as-real-hash and `dailyPuzzles`-values-not-existence-checked are both documented in the rules file as accepted trust boundaries rather than gaps to close — not practically fixable through Firestore rules without disproportionate cost for a hobby-scale project.
+- **Firestore rules aren't deployed via CLI** — no Firebase CLI wiring in this repo; `firestore.rules` is the source of truth and gets pasted into the Firebase console manually on every change. Confirmed working end-to-end via a local scratch script (not committed) that signs in anonymously and exercises both valid and rules-violating writes against the real project.
 
 **Outstanding / next:**
 
-- #15 done; next up is #16 (Firebase project + Firestore client setup), then #17/#18 in parallel.
-- No open questions blocking #16.
+- #15 and #16 done (PR #21 open, Copilot review addressed). Next up: #17 (anonymous play identity + play-stats tracking) and #18 (daily puzzle), which can proceed in parallel once #21 merges.
+- No open questions blocking #17/#18.
 
 ## mise + Node 24 CI (2026-07-11)
 
