@@ -12,6 +12,7 @@ import {
   getConflicts,
 } from './game';
 import { recordPuzzleCompletion, recordPuzzleStart } from './stats';
+import { cacheDailyPuzzles, dailyRandomDifficulty, dailySeed, todayUtc } from './dailyPuzzle';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
@@ -31,11 +32,18 @@ const btnResume = document.getElementById('btnResume')!;
 const btnNewGame = document.getElementById('btnNewGame')!;
 const btnPlayAgain = document.getElementById('btnPlayAgain')!;
 const numpadEl = document.getElementById('numpad')!;
+const btnDaily = document.getElementById('btnDaily')!;
+const btnDailyRandom = document.getElementById('btnDailyRandom')!;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
 let state: GameState | null = null;
 let difficulty: Difficulty = 'easy';
+// Set for a daily puzzle (see startDailyGame); startNewGame passes it to
+// createGame so the puzzle is reproduced deterministically instead of
+// randomly generated. Cleared by any action that should give a fresh
+// random puzzle (regular difficulty pick, New Game, Play Again).
+let activeSeed: number | undefined;
 let timerInterval: ReturnType<typeof setInterval> | null = null;
 // Guards against recordPuzzleCompletion firing more than once for the same
 // solve — render() can run again after `solved` flips true (e.g. further
@@ -243,7 +251,7 @@ async function startNewGame(): Promise<void> {
   // Yield to browser so loading UI renders before sync generation work
   await new Promise(r => setTimeout(r, 30));
 
-  state = createGame(difficulty);
+  state = createGame(difficulty, activeSeed);
   completionRecorded = false;
   loadingEl.classList.add('hidden');
   timerEl.textContent = '00:00';
@@ -252,6 +260,32 @@ async function startNewGame(): Promise<void> {
 
   recordPuzzleStart(state.puzzleId, state.difficulty, state.puzzle, state.puzzleId).catch(
     (err: unknown) => console.warn('Failed to record puzzle start:', err),
+  );
+}
+
+function setActiveDiffButton(target: Difficulty): void {
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.classList.toggle('active', (btn as HTMLElement).dataset.diff === target);
+  });
+}
+
+// Starts today's puzzle for `targetDifficulty` — deterministic, so every
+// player gets the identical puzzle. `dailyLabel` is the button that should
+// show as active (Today's Puzzle vs. Daily Random pick a difficulty
+// differently, but both land here).
+function startDailyGame(targetDifficulty: Difficulty, dailyButton: HTMLElement): void {
+  const date = todayUtc();
+  difficulty = targetDifficulty;
+  activeSeed = dailySeed(date, targetDifficulty);
+  setActiveDiffButton(targetDifficulty);
+  btnDaily.classList.toggle('active', dailyButton === btnDaily);
+  btnDailyRandom.classList.toggle('active', dailyButton === btnDailyRandom);
+  startNewGame();
+
+  // Best-effort bookkeeping — see cacheDailyPuzzles for why this is never
+  // required for the puzzle above to be correct.
+  cacheDailyPuzzles(date).catch((err: unknown) =>
+    console.warn('Failed to cache daily puzzles:', err),
   );
 }
 
@@ -357,18 +391,39 @@ function init(): void {
   initBoard();
   initNumpad();
 
-  // Difficulty buttons
+  // Difficulty buttons — picking one always starts a fresh random puzzle,
+  // leaving daily mode if it was active.
   document.querySelectorAll('.diff-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      btnDaily.classList.remove('active');
+      btnDailyRandom.classList.remove('active');
       difficulty = (btn as HTMLElement).dataset.diff as Difficulty;
+      activeSeed = undefined;
       startNewGame();
     });
   });
 
-  btnNewGame.addEventListener('click', () => startNewGame());
-  btnPlayAgain.addEventListener('click', () => startNewGame());
+  btnDaily.addEventListener('click', () => startDailyGame(difficulty, btnDaily));
+  btnDailyRandom.addEventListener('click', () =>
+    startDailyGame(dailyRandomDifficulty(todayUtc()), btnDailyRandom),
+  );
+
+  // New Game / Play Again always start a fresh random puzzle, matching
+  // pre-daily-puzzle behavior, even if a daily puzzle was active.
+  btnNewGame.addEventListener('click', () => {
+    btnDaily.classList.remove('active');
+    btnDailyRandom.classList.remove('active');
+    activeSeed = undefined;
+    startNewGame();
+  });
+  btnPlayAgain.addEventListener('click', () => {
+    btnDaily.classList.remove('active');
+    btnDailyRandom.classList.remove('active');
+    activeSeed = undefined;
+    startNewGame();
+  });
 
   btnUndo.addEventListener('click', () => {
     if (!state || state.paused) return;

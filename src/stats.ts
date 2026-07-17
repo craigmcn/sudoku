@@ -1,30 +1,9 @@
 import { onAuthStateChanged, signInAnonymously, type User } from 'firebase/auth';
-import {
-  doc,
-  increment,
-  runTransaction,
-  serverTimestamp,
-  updateDoc,
-  type Firestore,
-} from 'firebase/firestore';
+import { doc, increment, updateDoc } from 'firebase/firestore';
 import type { Difficulty } from './generator';
-import { auth, db } from './firebase';
+import { auth } from './firebase';
+import { ensurePuzzleDoc, requireDb } from './puzzleDoc';
 import { Board } from './solver';
-
-// Firestore rejects nested arrays, so the puzzle grid is stored as 9
-// row-strings ('0' for a blank cell) rather than a 9x9 array — see
-// firestore.rules and CLAUDE.md.
-function boardToRows(board: Board): string[] {
-  return board.map((row) => row.map((cell) => cell ?? 0).join(''));
-}
-
-// `db` is undefined when Firebase failed to initialize (see src/firebase.ts)
-// — narrows the type so callers don't need non-null assertions, and gives a
-// clear rejection reason instead of a TypeError deep in the firestore SDK.
-function requireDb(): Firestore {
-  if (!db) throw new Error('Firebase Firestore is not configured');
-  return db;
-}
 
 let authReady: Promise<User> | null = null;
 
@@ -84,23 +63,8 @@ export async function recordPuzzleStart(
   solutionHash: string,
 ): Promise<void> {
   await ensureAnonymousAuth();
-  const database = requireDb();
-  const ref = doc(database, 'puzzles', puzzleId);
-  await runTransaction(database, async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists()) {
-      tx.set(ref, {
-        difficulty,
-        puzzle: boardToRows(puzzle),
-        solutionHash,
-        timesPlayed: 0,
-        totalPlayTimeMs: 0,
-        completions: 0,
-        isDaily: false,
-        createdAt: serverTimestamp(),
-      });
-    }
-  });
+  await ensurePuzzleDoc(puzzleId, difficulty, puzzle, solutionHash);
+  const ref = doc(requireDb(), 'puzzles', puzzleId);
   await updateDoc(ref, { timesPlayed: increment(1) });
 }
 
