@@ -4,10 +4,12 @@ A browser-based Sudoku game built with TypeScript and Vite, deployed to Netlify.
 
 ## Architecture
 
-The project is split into four TypeScript modules plus static HTML/CSS:
+The project is split into TypeScript modules plus static HTML/CSS:
 
 - **[src/solver.ts](src/solver.ts)** — Core types and algorithms. Exports `Board` (9×9 grid of `number | null`), `isValid`, `solve` (backtracking solver), and `countSolutions` (stops early at `max`, restores the board on return).
-- **[src/generator.ts](src/generator.ts)** — Generates puzzles. Fills a board with a randomized backtracking fill, then removes cells one-by-one while verifying unique solution via `countSolutions`. Clue counts per difficulty: easy 46, normal 36, hard 28, expert 22.
+- **[src/rng.ts](src/rng.ts)** — `mulberry32(seed)`, a small seedable PRNG returning a `Math.random`-compatible `() => number` in `[0, 1)`. Exists so puzzle generation can be made reproducible from a seed (daily puzzles, puzzle-ID hashing) without pulling in a larger dependency.
+- **[src/puzzleId.ts](src/puzzleId.ts)** — `hashSolution(board)`, a stable content-hash ID for a solved grid (two 32-bit FNV-1a passes, concatenated as base36). Used to key puzzle documents so two independently-generated puzzles with the same solution collapse onto the same ID/stats instead of duplicating.
+- **[src/generator.ts](src/generator.ts)** — Generates puzzles. Fills a board with a randomized backtracking fill, then removes cells one-by-one while verifying unique solution via `countSolutions`. Clue counts per difficulty: easy 46, normal 36, hard 28, expert 22. `generatePuzzle(difficulty, seed?)` — an optional numeric `seed` makes the whole generation (fill order and removal order) deterministic via `mulberry32`; omitting it falls back to `Math.random` as before.
 - **[src/game.ts](src/game.ts)** — Pure functional game state. `GameState` holds the puzzle, solution, user board, given-cell mask, notes (bitmask per cell), notes mode, timer fields, mistake count, and undo history (`Snapshot[]`). All state mutations return a new `GameState`. Entering a correct number auto-clears that digit from peers' notes.
 - **[src/main.ts](src/main.ts)** — DOM wiring. Builds the board and numpad on init, handles clicks and keyboard input (digits, Backspace/Delete/0 to erase, `N` for notes mode, arrow keys to navigate). Renders all cell classes (given, selected, peer, same-num, conflict, has-value, has-notes) and dims completed digits in the numpad. Shows a loading overlay during puzzle generation (yields to the browser with a 30ms timeout before the sync generation work).
 
@@ -41,6 +43,7 @@ yarn test:e2e      # Playwright, starts its own dev server
 ## Progress (2026-05-02)
 
 **Completed:**
+
 - git init, initial commit, GitHub repo (`craigmcn/sudoku`), Netlify app
 - Node 24 (`.nvmrc`)
 - Yarn 4 (`.yarnrc.yml`, `nodeLinker: node-modules`, empty `yarn.lock` to declare standalone project)
@@ -59,12 +62,14 @@ yarn test:e2e      # Playwright, starts its own dev server
 - albertcss v0.15.0 integration: CDN `<link>` in `index.html`; `public/styles.css` stripped to game-only declarations (~85 lines removed)
 
 **Key decisions — albertcss integration:**
+
 - **CDN `<link>` over vendoring** — consistent with existing Google Fonts / FontAwesome CDN pattern; albertcss is the author's own library so the CDN is authoritative
 - **`--ab-*` prefix dropped** — game tokens now reference albertcss vars directly (e.g. `var(--primary)`, `var(--grey900)`); dark mode colour flipping is fully delegated to albertcss
 - **`.header` renamed to `.game-header`** — avoids collision with albertcss's `.header` component (site nav grid), keeping both stylesheets independent
 - ~~Raleway font-weight reduced to 600~~ — superseded; albertcss switched to Outfit in v0.17.0 (weights 500/600, no override needed here)
 
 **Outstanding:**
+
 - None — SRI resolved 2026-07-11: bumped to albertcss v0.18.0, switched the `<link>` to `albert.min.css`, added `integrity`/`crossorigin` using the hash published in albertcss's `versions.json`.
 
 **Future TODOs:** tracked as issues in the [sudoku GitHub Project](https://github.com/users/craigmcn/projects/10) — Firebase login + per-user stats, and anonymous game identity/puzzle numbering.
@@ -84,6 +89,30 @@ yarn test:e2e      # Playwright, starts its own dev server
 - **Locators re-evaluate on every action** — `.cell:not(.given)` is a live selector; once a hint reveals a cell it gains `.given` and drops out of that locator, silently shifting `.first()`/`.nth()` to a different cell on the next call. Tests that pick a cell and then act on it snapshot `data-row`/`data-col` first, then re-locate by those attributes for follow-up assertions.
 - **Wait for `#loading` to be hidden before reading board state** — puzzle generation is async (a 30ms yield plus the actual backtracking work), so a bare `locator.count()` read right after `page.goto()` or a difficulty click can race it and undercount `.cell.given`. Every test that reads board state first asserts `#loading` has the `hidden` class.
 - **Pause overlay blocks clicks at the browser level, not just in app state** — Playwright's own actionability check refuses to click the numpad through `#pauseOverlay` (`intercepts pointer events`), which is confirmation the CSS-only blocking approach (documented under Pause timer above) works. The pause test uses `{ force: true }` to bypass that check and additionally confirm `game.ts`'s `paused` guard makes the input a no-op even if the overlay were somehow bypassed.
+
+## Firebase puzzle-data planning (2026-07-17)
+
+**Completed:**
+
+- Planned the Firebase backend groundwork for Issue #12 (login + per-user stats), split into discrete issues on the [sudoku GitHub Project](https://github.com/users/craigmcn/projects/10):
+  - **#13** (updated, now the umbrella/context issue) — problem statement, data model summary, links to the issues below
+  - **#15** — seeded PRNG for `generator.ts` + canonical puzzle-ID (content hash of the solved grid) — **implemented**: [src/rng.ts](src/rng.ts) (`mulberry32`), [src/puzzleId.ts](src/puzzleId.ts) (`hashSolution`), `generatePuzzle(difficulty, seed?)` in [src/generator.ts](src/generator.ts); tests in `rng.test.ts`, `puzzleId.test.ts`, `generator.test.ts`
+  - **#16** — Firebase project + Firestore client setup (`src/firebase.ts`, env vars, security rules, `puzzles`/`dailyPuzzles` collections)
+  - **#17** — anonymous play identity (`signInAnonymously`) + play-stats tracking (times played, time played, completions)
+  - **#18** — daily puzzle: one deterministic puzzle per difficulty per date, plus a shared "daily random" pick from easy/normal/hard
+
+**Key decisions:**
+
+- **Puzzle ID = content hash of the solved grid, not a sequential counter** — generation is client-side and random (`Math.random()` today), so there's no central sequencer. Hashing the solution means two independently-generated identical puzzles collapse to the same Firestore doc/stats automatically, which is what "we already generated this exact puzzle" requires.
+- **Seeded PRNG is the prerequisite for everything else (#15 first)** — both daily puzzles (deterministic seed → same puzzle every time) and dedup/stats (stable ID from a reproducible generation) depend on replacing raw `Math.random()` with a seedable generator. `generatePuzzle(difficulty, seed?)` keeps `seed` optional so existing random-puzzle callers are unaffected.
+- **Anonymous auth (`signInAnonymously`) before real login** — split into its own issue (#17) rather than bundled with #12, so play stats have a stable uid to attach to immediately, and can be merged into a real account once #12's login lands, rather than waiting on login to exist first.
+- **Client-side doc creation, not a `beforeUserCreated` trigger** — mirrors the `files` repo's Firestore-doc-per-user pattern but avoids the paid Blaze plan requirement, consistent with the storage-backend research already on file (see "Storage backend research done" note above).
+- **Display-facing puzzle numbering is explicitly deferred** — the content hash is sufficient for dedup/stats; a separate human-facing sequence number (if wanted) can be layered on later without touching the identity scheme.
+
+**Outstanding / next:**
+
+- #15 done; next up is #16 (Firebase project + Firestore client setup), then #17/#18 in parallel.
+- No open questions blocking #16.
 
 ## mise + Node 24 CI (2026-07-11)
 
