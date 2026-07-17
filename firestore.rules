@@ -18,10 +18,20 @@ service cloud.firestore {
     // outright (confirmed via smoke test against this project). `is list`
     // below passes either way; the row-strings shape is enforced by the
     // writer, not these rules.
+    //
+    // `puzzleId` is not validated as the actual hashSolution() output of the
+    // submitted puzzle — rules can't recompute that hash, so this is an
+    // accepted trust boundary, not an oversight. A malicious client could in
+    // principle squat on a future puzzle's ID with junk content; low-risk
+    // for a hobby-scale, non-adversarial project.
     match /puzzles/{puzzleId} {
       allow read: if true;
 
       allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly([
+             'difficulty', 'puzzle', 'solutionHash', 'timesPlayed',
+             'totalPlayTimeMs', 'completions', 'isDaily', 'createdAt', 'dailyDate'
+           ])
         && request.resource.data.difficulty in ['easy', 'normal', 'hard', 'expert']
         && request.resource.data.puzzle is list
         && request.resource.data.solutionHash is string
@@ -30,12 +40,23 @@ service cloud.firestore {
         && request.resource.data.completions == 0
         && request.resource.data.isDaily is bool;
 
+      // Counter-only updates: fields must stay integers, and each write may
+      // only move a counter by a bounded amount — timesPlayed/completions by
+      // at most 1 (one play session per write), totalPlayTimeMs by at most
+      // 6 hours (21600000ms) as a sanity ceiling against a fat-fingered or
+      // malicious jump, while still generous for a real long session.
       allow update: if request.auth != null
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['timesPlayed', 'totalPlayTimeMs', 'completions'])
+        && request.resource.data.timesPlayed is int
+        && request.resource.data.totalPlayTimeMs is int
+        && request.resource.data.completions is int
         && request.resource.data.timesPlayed >= resource.data.timesPlayed
+        && request.resource.data.timesPlayed <= resource.data.timesPlayed + 1
         && request.resource.data.totalPlayTimeMs >= resource.data.totalPlayTimeMs
-        && request.resource.data.completions >= resource.data.completions;
+        && request.resource.data.totalPlayTimeMs <= resource.data.totalPlayTimeMs + 21600000
+        && request.resource.data.completions >= resource.data.completions
+        && request.resource.data.completions <= resource.data.completions + 1;
 
       allow delete: if false;
     }
@@ -43,6 +64,11 @@ service cloud.firestore {
     // dailyPuzzles/{yyyy-mm-dd} — created once, by whichever client asks for
     // that date first; immutable after that so everyone sees the same
     // puzzle for the day.
+    //
+    // The easy/normal/hard/expert/random values aren't checked against
+    // existing puzzles/{puzzleId} docs — a get()-based existence check is
+    // possible but costs an extra read per field, which isn't worth it at
+    // this project's scale. Accepted trade-off, not an oversight.
     match /dailyPuzzles/{date} {
       allow read: if true;
 
