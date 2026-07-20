@@ -143,7 +143,7 @@ function initNumpad(): void {
 function render(): void {
   if (!state) return;
 
-  saveGame(state, difficulty);
+  saveGame(state);
 
   const conflicts = getConflicts(state);
   const sel = state.selected;
@@ -326,7 +326,7 @@ function tryRestoreGame(): boolean {
 
   difficulty = saved.difficulty;
   activeSeed = undefined;
-  state = saved.state.started ? { ...saved.state, paused: true } : saved.state;
+  state = saved.started ? { ...saved, paused: true } : saved;
   completionRecorded = false;
 
   loadingEl.classList.add('hidden');
@@ -618,11 +618,10 @@ function init(): void {
   // time could otherwise lag behind by up to a second. Save explicitly at
   // the moments a backgrounded/killed tab is most likely to strike.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden' && state)
-      saveGame(state, difficulty);
+    if (document.visibilityState === 'hidden' && state) saveGame(state);
   });
   window.addEventListener('pagehide', () => {
-    if (state) saveGame(state, difficulty);
+    if (state) saveGame(state);
   });
 
   btnSignIn.addEventListener('click', openSignInOverlay);

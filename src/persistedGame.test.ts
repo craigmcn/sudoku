@@ -37,14 +37,14 @@ beforeEach(() => {
 describe('saveGame / loadGame', () => {
   it('round-trips an in-progress game', () => {
     const state = selectCell(createGame('easy', 1), 0, 0);
-    saveGame(state, 'easy');
+    saveGame(state);
 
     const restored = loadGame();
 
     expect(restored).not.toBeNull();
     expect(restored!.difficulty).toBe('easy');
-    expect(restored!.state.puzzleId).toBe(state.puzzleId);
-    expect(restored!.state.userBoard).toEqual(state.userBoard);
+    expect(restored!.puzzleId).toBe(state.puzzleId);
+    expect(restored!.userBoard).toEqual(state.userBoard);
   });
 
   it('returns null when nothing has been saved', () => {
@@ -53,15 +53,15 @@ describe('saveGame / loadGame', () => {
 
   it('does not persist a solved game, and clears any prior save', () => {
     const state = { ...createGame('easy', 1), solved: true };
-    saveGame({ ...createGame('easy', 1) }, 'easy'); // seed an unsolved save first
-    saveGame(state, 'easy');
+    saveGame(createGame('easy', 1)); // seed an unsolved save first
+    saveGame(state);
 
     expect(loadGame()).toBeNull();
   });
 
   it('discards a save from a different schema version', () => {
     const state = createGame('easy', 1);
-    saveGame(state, 'easy');
+    saveGame(state);
 
     const raw = JSON.parse(localStorage.getItem('sudoku-saved-game')!);
     localStorage.setItem(
@@ -76,7 +76,7 @@ describe('saveGame / loadGame', () => {
 
   it('discards a save older than the max age', () => {
     const state = createGame('easy', 1);
-    saveGame(state, 'easy');
+    saveGame(state);
 
     const raw = JSON.parse(localStorage.getItem('sudoku-saved-game')!);
     const oneDayMs = 24 * 60 * 60 * 1000;
@@ -98,21 +98,34 @@ describe('saveGame / loadGame', () => {
     let state = createGame('easy', 1);
     const emptyCell = state.userBoard
       .flatMap((row, r) => row.map((v, c) => ({ r, c, v })))
-      .find(cell => cell.v === null && !state.given[cell.r][cell.c])!;
+      .find((cell) => cell.v === null && !state.given[cell.r][cell.c])!;
     state = selectCell(state, emptyCell.r, emptyCell.c);
     state = enterNumber(state, 1);
-    saveGame(state, 'easy');
+    saveGame(state);
 
     const restored = loadGame()!;
-    expect(restored.state.mistakes).toBe(state.mistakes);
-    expect(restored.state.userBoard).toEqual(state.userBoard);
-    expect(restored.state.history.length).toBe(state.history.length);
+    expect(restored.mistakes).toBe(state.mistakes);
+    expect(restored.userBoard).toEqual(state.userBoard);
+  });
+
+  it('does not persist the undo history', () => {
+    let state = createGame('easy', 1);
+    const emptyCell = state.userBoard
+      .flatMap((row, r) => row.map((v, c) => ({ r, c, v })))
+      .find((cell) => cell.v === null && !state.given[cell.r][cell.c])!;
+    state = selectCell(state, emptyCell.r, emptyCell.c);
+    state = enterNumber(state, 1);
+    expect(state.history.length).toBeGreaterThan(0);
+
+    saveGame(state);
+
+    expect(loadGame()!.history).toEqual([]);
   });
 });
 
 describe('clearSavedGame', () => {
   it('removes a saved game', () => {
-    saveGame(createGame('easy', 1), 'easy');
+    saveGame(createGame('easy', 1));
     expect(loadGame()).not.toBeNull();
 
     clearSavedGame();

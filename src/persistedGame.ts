@@ -1,4 +1,4 @@
-import { Difficulty, GameState } from './game';
+import { GameState } from './game';
 
 const STORAGE_KEY = 'sudoku-saved-game';
 // Bump when GameState's shape changes so an old save from a prior schema
@@ -11,25 +11,20 @@ const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 interface PersistedGame {
   version: number;
   savedAt: number;
-  difficulty: Difficulty;
   state: GameState;
 }
 
-export interface RestoredGame {
-  state: GameState;
-  difficulty: Difficulty;
-}
-
-export function saveGame(state: GameState, difficulty: Difficulty): void {
+export function saveGame(state: GameState): void {
   if (state.solved) {
     clearSavedGame();
     return;
   }
+  // The undo history isn't needed to resume a game and grows unbounded over
+  // a session, so it's dropped rather than serialized on every save.
   const payload: PersistedGame = {
     version: SCHEMA_VERSION,
     savedAt: Date.now(),
-    difficulty,
-    state,
+    state: { ...state, history: [] },
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -38,7 +33,7 @@ export function saveGame(state: GameState, difficulty: Difficulty): void {
   }
 }
 
-export function loadGame(): RestoredGame | null {
+export function loadGame(): GameState | null {
   let raw: string | null;
   try {
     raw = localStorage.getItem(STORAGE_KEY);
@@ -58,7 +53,7 @@ export function loadGame(): RestoredGame | null {
       clearSavedGame();
       return null;
     }
-    return { state: parsed.state, difficulty: parsed.difficulty };
+    return parsed.state;
   } catch (err) {
     console.warn('Failed to parse saved game state:', err);
     clearSavedGame();
