@@ -12,7 +12,13 @@ import {
   getConflicts,
 } from './game';
 import { recordPuzzleCompletion, recordPuzzleStart } from './stats';
-import { cacheDailyPuzzles, dailyRandomDifficulty, dailySeed, todayUtc } from './dailyPuzzle';
+import { loadGame, saveGame } from './persistedGame';
+import {
+  cacheDailyPuzzles,
+  dailyRandomDifficulty,
+  dailySeed,
+  todayUtc,
+} from './dailyPuzzle';
 import {
   completeEmailLinkSignInIfPresent,
   onAuthChange,
@@ -48,7 +54,9 @@ const signedInLabel = document.getElementById('signedInLabel')!;
 const btnSignOut = document.getElementById('btnSignOut')!;
 const signInOverlay = document.getElementById('signInOverlay')!;
 const btnGoogleSignIn = document.getElementById('btnGoogleSignIn')!;
-const emailLinkInput = document.getElementById('emailLinkInput')! as HTMLInputElement;
+const emailLinkInput = document.getElementById(
+  'emailLinkInput',
+)! as HTMLInputElement;
 const btnEmailLinkSignIn = document.getElementById('btnEmailLinkSignIn')!;
 const signInStatusEl = document.getElementById('signInStatus')!;
 const btnCloseSignIn = document.getElementById('btnCloseSignIn')!;
@@ -135,6 +143,8 @@ function initNumpad(): void {
 function render(): void {
   if (!state) return;
 
+  saveGame(state);
+
   const conflicts = getConflicts(state);
   const sel = state.selected;
   const selVal = sel ? state.userBoard[sel.row][sel.col] : null;
@@ -189,12 +199,13 @@ function render(): void {
 
       if (notesMask !== 0 && val === null) {
         cell.classList.add('has-notes');
-        notesDiv.querySelectorAll('.note').forEach(span => {
+        notesDiv.querySelectorAll('.note').forEach((span) => {
           const num = parseInt((span as HTMLElement).dataset.num!);
-          (span as HTMLElement).textContent = (notesMask >> (num - 1)) & 1 ? String(num) : '';
+          (span as HTMLElement).textContent =
+            (notesMask >> (num - 1)) & 1 ? String(num) : '';
         });
       } else {
-        notesDiv.querySelectorAll('.note').forEach(span => {
+        notesDiv.querySelectorAll('.note').forEach((span) => {
           (span as HTMLElement).textContent = '';
         });
       }
@@ -209,7 +220,10 @@ function render(): void {
   btnPause.querySelector('i')!.className = state.paused
     ? 'fa-sharp fa-light fa-play'
     : 'fa-sharp fa-light fa-pause';
-  btnPause.setAttribute('aria-label', state.paused ? 'Resume timer' : 'Pause timer');
+  btnPause.setAttribute(
+    'aria-label',
+    state.paused ? 'Resume timer' : 'Pause timer',
+  );
 
   // Mistakes
   mistakesEl.textContent = `Mistakes: ${state.mistakes}`;
@@ -220,7 +234,7 @@ function render(): void {
     for (let c = 0; c < 9; c++)
       if (state.userBoard[r][c]) counts[state.userBoard[r][c]!]++;
 
-  numpadEl.querySelectorAll('.num-btn').forEach(btn => {
+  numpadEl.querySelectorAll('.num-btn').forEach((btn) => {
     const n = parseInt((btn as HTMLElement).dataset.num!);
     (btn as HTMLElement).classList.toggle('completed', counts[n] >= 9);
     (btn as HTMLElement).classList.toggle('selected-num', selVal === n);
@@ -235,7 +249,10 @@ function startTimer(): void {
   stopTimer();
   timerInterval = setInterval(() => {
     if (!state || state.solved) return;
-    state = { ...state, elapsed: Math.floor((Date.now() - state.startTime) / 1000) };
+    state = {
+      ...state,
+      elapsed: Math.floor((Date.now() - state.startTime) / 1000),
+    };
     renderTimer();
   }, 1000);
 }
@@ -274,7 +291,7 @@ async function startNewGame(): Promise<void> {
   loadingEl.classList.remove('hidden');
 
   // Yield to browser so loading UI renders before sync generation work
-  await new Promise(r => setTimeout(r, 30));
+  await new Promise((r) => setTimeout(r, 30));
 
   // A newer startNewGame() call started while this one was yielding —
   // let it win instead of overwriting its state with a stale puzzle.
@@ -287,14 +304,53 @@ async function startNewGame(): Promise<void> {
   // Timer stays idle until the first cell is filled — see handleNumInput
   render();
 
-  recordPuzzleStart(state.puzzleId, state.difficulty, state.puzzle, state.puzzleId).catch(
-    (err: unknown) => console.warn('Failed to record puzzle start:', err),
+  recordPuzzleStart(
+    state.puzzleId,
+    state.difficulty,
+    state.puzzle,
+    state.puzzleId,
+  ).catch((err: unknown) =>
+    console.warn('Failed to record puzzle start:', err),
   );
 }
 
+// Rehydrates a saved in-progress game (see src/persistedGame.ts) instead of
+// generating a new puzzle — used at boot, e.g. after a backgrounded tab gets
+// reloaded from scratch by the browser. A game that had already started is
+// always restored paused, since the elapsed time was last saved whenever the
+// tab was backgrounded/hidden and jumping straight back into a live timer
+// without the player's say-so would be surprising.
+function tryRestoreGame(): boolean {
+  const saved = loadGame();
+  if (!saved) return false;
+
+  difficulty = saved.difficulty;
+  activeSeed = undefined;
+  state = saved.started ? { ...saved, paused: true } : saved;
+  completionRecorded = false;
+
+  loadingEl.classList.add('hidden');
+  setActiveDiffButton(difficulty);
+  btnDaily.classList.remove('active');
+  btnDailyRandom.classList.remove('active');
+  render();
+  renderTimer();
+
+  if (state.paused) {
+    pauseOverlayEl.classList.remove('hidden');
+  } else if (state.started) {
+    startTimer();
+  }
+
+  return true;
+}
+
 function setActiveDiffButton(target: Difficulty): void {
-  document.querySelectorAll('.diff-btn').forEach(btn => {
-    btn.classList.toggle('active', (btn as HTMLElement).dataset.diff === target);
+  document.querySelectorAll('.diff-btn').forEach((btn) => {
+    btn.classList.toggle(
+      'active',
+      (btn as HTMLElement).dataset.diff === target,
+    );
   });
 }
 
@@ -302,7 +358,10 @@ function setActiveDiffButton(target: Difficulty): void {
 // player gets the identical puzzle. `dailyButton` is the button that should
 // show as active (Today's Puzzle vs. Daily Random pick a difficulty
 // differently, but both land here).
-function startDailyGame(targetDifficulty: Difficulty, dailyButton: HTMLElement): void {
+function startDailyGame(
+  targetDifficulty: Difficulty,
+  dailyButton: HTMLElement,
+): void {
   const date = todayUtc();
   difficulty = targetDifficulty;
   activeSeed = dailySeed(date, targetDifficulty);
@@ -329,8 +388,9 @@ function handleVictory(): void {
 
   if (!completionRecorded) {
     completionRecorded = true;
-    recordPuzzleCompletion(state!.puzzleId, elapsed * 1000).catch((err: unknown) =>
-      console.warn('Failed to record puzzle completion:', err),
+    recordPuzzleCompletion(state!.puzzleId, elapsed * 1000).catch(
+      (err: unknown) =>
+        console.warn('Failed to record puzzle completion:', err),
     );
   }
 }
@@ -378,7 +438,8 @@ async function handleEmailLinkSignIn(): Promise<void> {
     await sendSignInLink(email);
     signInStatusEl.textContent = 'Check your email for a sign-in link.';
   } catch (err) {
-    signInStatusEl.textContent = 'Could not send sign-in link. Please try again.';
+    signInStatusEl.textContent =
+      'Could not send sign-in link. Please try again.';
     console.warn('Failed to send sign-in link:', err);
   }
 }
@@ -459,11 +520,20 @@ function handleKeydown(e: KeyboardEvent): void {
 
   let { row, col } = sel;
   switch (e.key) {
-    case 'ArrowUp':    row = Math.max(0, row - 1); break;
-    case 'ArrowDown':  row = Math.min(8, row + 1); break;
-    case 'ArrowLeft':  col = Math.max(0, col - 1); break;
-    case 'ArrowRight': col = Math.min(8, col + 1); break;
-    default: return;
+    case 'ArrowUp':
+      row = Math.max(0, row - 1);
+      break;
+    case 'ArrowDown':
+      row = Math.min(8, row + 1);
+      break;
+    case 'ArrowLeft':
+      col = Math.max(0, col - 1);
+      break;
+    case 'ArrowRight':
+      col = Math.min(8, col + 1);
+      break;
+    default:
+      return;
   }
   e.preventDefault();
   state = { ...state, selected: { row, col } };
@@ -478,7 +548,7 @@ function init(): void {
 
   // Difficulty buttons — picking one always starts a fresh random puzzle,
   // leaving daily mode if it was active.
-  document.querySelectorAll('.diff-btn').forEach(btn => {
+  document.querySelectorAll('.diff-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const target = (btn as HTMLElement).dataset.diff as Difficulty;
       setActiveDiffButton(target);
@@ -490,7 +560,9 @@ function init(): void {
     });
   });
 
-  btnDaily.addEventListener('click', () => startDailyGame(difficulty, btnDaily));
+  btnDaily.addEventListener('click', () =>
+    startDailyGame(difficulty, btnDaily),
+  );
   btnDailyRandom.addEventListener('click', () =>
     startDailyGame(dailyRandomDifficulty(todayUtc()), btnDailyRandom),
   );
@@ -541,6 +613,17 @@ function init(): void {
 
   document.addEventListener('keydown', handleKeydown);
 
+  // The timer's setInterval tick updates `state.elapsed` without calling
+  // render() (see startTimer), so an idle-but-ticking game's saved elapsed
+  // time could otherwise lag behind by up to a second. Save explicitly at
+  // the moments a backgrounded/killed tab is most likely to strike.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && state) saveGame(state);
+  });
+  window.addEventListener('pagehide', () => {
+    if (state) saveGame(state);
+  });
+
   btnSignIn.addEventListener('click', openSignInOverlay);
   btnCloseSignIn.addEventListener('click', closeSignInOverlay);
   btnGoogleSignIn.addEventListener('click', () => handleGoogleSignIn());
@@ -556,7 +639,7 @@ function init(): void {
     console.warn('Failed to complete email-link sign-in:', err),
   );
 
-  startNewGame();
+  if (!tryRestoreGame()) startNewGame();
 }
 
 init();
