@@ -477,6 +477,12 @@ async function handleSignOut(): Promise<void> {
 
 const RECENT_PLAYS_LIMIT = 10;
 const DISPLAY_DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard', 'expert'];
+// Bumped on every openStatsOverlay()/closeStatsOverlay() call, mirroring
+// startNewGame()'s gameGeneration guard: each fetchUserPlays() call captures
+// its own value and checks it again after the await, so an overlapping
+// older call (rapid re-clicks, or a close while a fetch is in flight) bails
+// out instead of clobbering a newer render with stale data.
+let statsRequestId = 0;
 
 function renderStatsMessage(text: string, className: string): void {
   statsContent.innerHTML = '';
@@ -558,19 +564,23 @@ function renderStatsData(plays: UserPlay[]): void {
 }
 
 async function openStatsOverlay(): Promise<void> {
+  const requestId = ++statsRequestId;
   statsOverlay.classList.remove('hidden');
   renderStatsMessage('Loading…', 'stats-loading');
 
   try {
     const plays = await fetchUserPlays();
+    if (requestId !== statsRequestId) return;
     renderStatsData(plays);
   } catch (err) {
+    if (requestId !== statsRequestId) return;
     renderStatsMessage('Stats unavailable right now.', 'stats-error');
     console.warn('Failed to load stats:', err);
   }
 }
 
 function closeStatsOverlay(): void {
+  statsRequestId++;
   statsOverlay.classList.add('hidden');
 }
 
