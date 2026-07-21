@@ -42,13 +42,6 @@
       </div>
     </header>
 
-    <nav class="difficulty-nav">
-      <button class="diff-btn active" data-diff="easy">Easy</button>
-      <button class="diff-btn" data-diff="normal">Normal</button>
-      <button class="diff-btn" data-diff="hard">Hard</button>
-      <button class="diff-btn" data-diff="expert">Expert</button>
-    </nav>
-
     <div id="drawerBackdrop" class="drawer-backdrop hidden"></div>
 
     <nav id="secondaryNav" class="secondary-nav">
@@ -77,13 +70,26 @@
           <span>Sign in</span>
         </button>
         <div id="signedInInfo" class="signed-in-info hidden">
+          <img id="signedInAvatarImg" class="signed-in-avatar hidden" alt="" />
+          <i
+            id="signedInAvatarIcon"
+            class="fa-sharp fa-light fa-circle-user signed-in-avatar-icon"
+            aria-hidden="true"
+          ></i>
           <span id="signedInLabel" class="signed-in-label"></span>
-          <button id="btnSignOut" class="daily-btn">
+          <button id="btnSignOut" class="daily-btn signout-btn" aria-label="Sign out">
             <i class="fa-sharp fa-light fa-arrow-right-from-bracket"></i>
-            <span>Sign out</span>
+            <span class="signout-label">Sign out</span>
           </button>
         </div>
       </div>
+    </nav>
+
+    <nav class="difficulty-nav">
+      <button class="diff-btn active" data-diff="easy">Easy</button>
+      <button class="diff-btn" data-diff="normal">Normal</button>
+      <button class="diff-btn" data-diff="hard">Hard</button>
+      <button class="diff-btn" data-diff="expert">Expert</button>
     </nav>
 
     <main class="game-area">

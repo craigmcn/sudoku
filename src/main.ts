@@ -62,6 +62,10 @@ const btnDailyRandom = document.getElementById('btnDailyRandom')!;
 const btnSignIn = document.getElementById('btnSignIn')!;
 const signedInInfo = document.getElementById('signedInInfo')!;
 const signedInLabel = document.getElementById('signedInLabel')!;
+const signedInAvatarImg = document.getElementById(
+  'signedInAvatarImg',
+)! as HTMLImageElement;
+const signedInAvatarIcon = document.getElementById('signedInAvatarIcon')!;
 const btnSignOut = document.getElementById('btnSignOut')!;
 const signInOverlay = document.getElementById('signInOverlay')!;
 const btnGoogleSignIn = document.getElementById('btnGoogleSignIn')!;
@@ -445,7 +449,21 @@ function renderAuthState(user: FirebaseUser | null): void {
   btnSignIn.classList.toggle('hidden', signedIn);
   signedInInfo.classList.toggle('hidden', !signedIn);
   if (signedIn) {
-    signedInLabel.textContent = user!.displayName || user!.email || 'Signed in';
+    const label = user!.displayName || user!.email || 'Signed in';
+    signedInLabel.textContent = label;
+    // Screen readers get `label` via this aria-label regardless of which of
+    // avatar/name-email-text is visually shown at the current breakpoint
+    // (see public/styles.css) — both signedInAvatarIcon and the img below
+    // are marked decorative/empty-alt so they aren't announced separately.
+    signedInInfo.setAttribute('aria-label', label);
+    if (user!.photoURL) {
+      signedInAvatarImg.src = user!.photoURL;
+      signedInAvatarImg.classList.remove('hidden');
+      signedInAvatarIcon.classList.add('hidden');
+    } else {
+      signedInAvatarImg.classList.add('hidden');
+      signedInAvatarIcon.classList.remove('hidden');
+    }
   }
 }
 
