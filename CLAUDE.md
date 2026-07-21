@@ -263,3 +263,25 @@ Closes #37 — "the sign-out button appears to do nothing."
 
 - **No eager `ensureAnonymousAuth()` call added to `handleSignOut`** — considered per the issue's own checklist, but every call site that needs a uid after sign-out (`recordPuzzleStart`, `recordPuzzleCompletion`, `recordUserPlay`, `fetchUserPlays`) already calls `ensureAnonymousAuth()` itself and lazily re-signs-in anonymously on demand (see `stats.ts`). Adding an eager call in `handleSignOut` would be redundant with that existing lazy-idempotent pattern, not a fix for anything broken.
 - **No new user-facing error UI for sign-out failure** — `handleSignOut`'s `catch` still only `console.warn`s, matching this repo's existing "never block on a non-critical backend failure" tolerance used elsewhere (`recordPuzzleStart`/`recordPuzzleCompletion` etc.). The reported symptom was fully explained by the CSS bug above; no evidence of `signOutUser()` actually throwing in practice, so no speculative UI was added for it.
+
+## Mobile navbar (2026-07-21)
+
+Closes #35 — the header/nav complex had no mobile-specific pass: at a 375px viewport, "Mistakes: 0" wrapped and overlapped the logo, and three icon buttons (pause/stats/sign-in) plus a full daily-puzzle nav row were all crammed in, confirmed via a scratch Playwright screenshot before making any changes.
+
+**Completed:**
+
+- Split the header into **essential** (logo, mistakes, timer, pause — always inline, all viewports) and **secondary** (daily-puzzle buttons, stats, sign-in/out — grouped into one `#secondaryNav`) per the issue's own essential/secondary framing.
+- `#secondaryNav` is one `<nav>` containing `.daily-nav` (`#btnDaily`/`#btnDailyRandom`) and a new `.account-nav` (`#btnStats`, `#btnSignIn`/`#signedInInfo`, moved out of `.header-right`) — same buttons, same IDs, no duplication anywhere.
+- Desktop (>32.5rem, matching the existing breakpoint): `#secondaryNav` renders as a single inline row below the difficulty nav — `.daily-nav`/`.account-nav` at a 4:3 flex-basis ratio (tuned so "Sign in" doesn't wrap) — a modest reshuffle from before (stats/sign-in used to sit in the header) but no functional change.
+- Mobile (≤32.5rem): a hamburger button (`#btnMenu`, new, header-right) replaces the icon buttons; `#secondaryNav` becomes a fixed slide-in drawer (`transform: translateX`, backdrop `#drawerBackdrop`), closed by its own `✕` button, clicking the backdrop, Escape, or clicking any action inside it (`openDrawer`/`closeDrawer` in [src/main.ts](src/main.ts)).
+
+**Key decisions:**
+
+- **One set of buttons, not two** — the drawer couldn't be built by duplicating `#btnStats`/`#btnSignIn`/daily buttons with separate mobile-only IDs (duplicate IDs break `getElementById`-based wiring and are invalid HTML). Instead `#secondaryNav` and its children are the single source of truth; only their *container's* CSS positioning changes per breakpoint (normal flow on desktop, `position: fixed` off-canvas on mobile) — the `position: fixed` escape from flex/grid layout is what makes this work without JS reparenting.
+- **Stats/sign-in moved out of `.header-right` into `.account-nav`, on both desktop and mobile** — a consequence of the above: since the drawer needs `#secondaryNav` to be one physical container holding *everything* secondary, stats/sign-in couldn't stay in the header on desktop while also living in the drawer on mobile. Accepted as a minor, reasonable desktop reshuffle (grouping "extras" together) rather than pursuing a fragile pixel-matched two-container illusion.
+- **`.daily-btn` styling reused for `#btnStats`/`#btnSignIn`/`#btnSignOut`** instead of keeping `.pause-btn` (icon-only) — once sitting in a row/list next to labeled daily-puzzle buttons, matching that labeled-button style reads more consistently than mixing icon-only and icon+label buttons in the same nav.
+- **`.hidden` utility class (generalized in #37, just before this issue) is what makes `#drawerBackdrop` work with zero extra CSS** — the backdrop starts `hidden` in markup and gets `.hidden` toggled by `openDrawer()`/`closeDrawer()`, the same pattern every overlay already uses.
+- **Escape closes the drawer via its own top-level `keydown` listener, not `handleKeydown`** — `handleKeydown` (arrow-key navigation, digit entry, etc.) returns early when `!state || state.solved`, which shouldn't gate whether the menu can be dismissed.
+- **Verified live**, not just by reading the CSS: scratch Playwright scripts (not committed) screenshotted the header at 375px and 900px before and after, and separately drove the drawer's open/close/backdrop-click/Escape/click-inside-then-close behavior and asserted on `classList`. Full `yarn test:run` (130/130) and `yarn test:e2e` (7/7) re-run after the change, both green.
+
+**Outstanding / next:** none for this issue.

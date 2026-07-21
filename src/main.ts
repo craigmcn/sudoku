@@ -74,6 +74,10 @@ const btnCloseSignIn = document.getElementById('btnCloseSignIn')!;
 const btnStats = document.getElementById('btnStats')!;
 const statsOverlay = document.getElementById('statsOverlay')!;
 const statsContent = document.getElementById('statsContent')!;
+const btnMenu = document.getElementById('btnMenu')! as HTMLButtonElement;
+const btnCloseMenu = document.getElementById('btnCloseMenu')!;
+const secondaryNav = document.getElementById('secondaryNav')!;
+const drawerBackdrop = document.getElementById('drawerBackdrop')!;
 const btnCloseStats = document.getElementById('btnCloseStats')!;
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -416,6 +420,24 @@ function handleVictory(): void {
   }
 }
 
+// ── Mobile drawer ─────────────────────────────────────────────────────────────
+// #secondaryNav (daily puzzle + stats/account) becomes a slide-in drawer at
+// mobile widths (see #35) — the hamburger/backdrop/Escape wiring below is a
+// no-op visually at desktop widths since .menu-btn is hidden there and
+// nothing ever calls openDrawer().
+
+function openDrawer(): void {
+  secondaryNav.classList.add('open');
+  drawerBackdrop.classList.remove('hidden');
+  btnMenu.setAttribute('aria-expanded', 'true');
+}
+
+function closeDrawer(): void {
+  secondaryNav.classList.remove('open');
+  drawerBackdrop.classList.add('hidden');
+  btnMenu.setAttribute('aria-expanded', 'false');
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 function renderAuthState(user: FirebaseUser | null): void {
@@ -692,12 +714,14 @@ function init(): void {
     });
   });
 
-  btnDaily.addEventListener('click', () =>
-    startDailyGame(difficulty, btnDaily),
-  );
-  btnDailyRandom.addEventListener('click', () =>
-    startDailyGame(dailyRandomDifficulty(todayUtc()), btnDailyRandom),
-  );
+  btnDaily.addEventListener('click', () => {
+    closeDrawer();
+    startDailyGame(difficulty, btnDaily);
+  });
+  btnDailyRandom.addEventListener('click', () => {
+    closeDrawer();
+    startDailyGame(dailyRandomDifficulty(todayUtc()), btnDailyRandom);
+  });
 
   // New Game / Play Again always start a fresh random puzzle, matching
   // pre-daily-puzzle behavior, even if a daily puzzle was active.
@@ -756,14 +780,27 @@ function init(): void {
     if (state) saveGame(state);
   });
 
-  btnSignIn.addEventListener('click', openSignInOverlay);
+  btnSignIn.addEventListener('click', () => {
+    closeDrawer();
+    openSignInOverlay();
+  });
   btnCloseSignIn.addEventListener('click', closeSignInOverlay);
   btnGoogleSignIn.addEventListener('click', () => handleGoogleSignIn());
   btnEmailLinkSignIn.addEventListener('click', () => handleEmailLinkSignIn());
   btnSignOut.addEventListener('click', () => handleSignOut());
 
-  btnStats.addEventListener('click', () => openStatsOverlay());
+  btnStats.addEventListener('click', () => {
+    closeDrawer();
+    openStatsOverlay();
+  });
   btnCloseStats.addEventListener('click', closeStatsOverlay);
+
+  btnMenu.addEventListener('click', openDrawer);
+  btnCloseMenu.addEventListener('click', closeDrawer);
+  drawerBackdrop.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeDrawer();
+  });
 
   onAuthChange(renderAuthState);
   // Completes a passwordless sign-in if the page was just opened from an
