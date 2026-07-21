@@ -406,7 +406,7 @@ body {
   z-index: 100;
 }
 
-.overlay.hidden { display: none; }
+.hidden { display: none; }
 
 /* Loading */
 .loading-box {
