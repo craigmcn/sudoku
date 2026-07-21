@@ -1,5 +1,15 @@
-import { onAuthStateChanged, signInAnonymously, type User } from 'firebase/auth';
-import { doc, increment, updateDoc } from 'firebase/firestore';
+import {
+  onAuthStateChanged,
+  signInAnonymously,
+  type User,
+} from 'firebase/auth';
+import {
+  doc,
+  increment,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore';
 import type { Difficulty } from './generator';
 import { auth } from './firebase';
 import { ensurePuzzleDoc, requireDb } from './puzzleDoc';
@@ -11,7 +21,8 @@ let authReady: Promise<User> | null = null;
 // browser. Idempotent and safe to call from multiple places — subsequent
 // calls reuse the in-flight/resolved promise instead of re-signing-in.
 export function ensureAnonymousAuth(): Promise<User> {
-  if (!auth) return Promise.reject(new Error('Firebase Auth is not configured'));
+  if (!auth)
+    return Promise.reject(new Error('Firebase Auth is not configured'));
   if (authReady) return authReady;
 
   const authInstance = auth;
@@ -80,11 +91,36 @@ export async function recordPuzzleStart(
 // Called when a puzzle is solved. elapsedMs is the time for this single play
 // session — firestore.rules caps each update to +6h to guard against a
 // runaway or malicious jump.
-export async function recordPuzzleCompletion(puzzleId: string, elapsedMs: number): Promise<void> {
+export async function recordPuzzleCompletion(
+  puzzleId: string,
+  elapsedMs: number,
+): Promise<void> {
   await ensureAnonymousAuth();
   const ref = doc(requireDb(), 'puzzles', puzzleId);
   await updateDoc(ref, {
     completions: increment(1),
     totalPlayTimeMs: increment(elapsedMs),
+  });
+}
+
+// Called when a puzzle is solved, alongside recordPuzzleCompletion — that
+// function updates the puzzle's aggregate stats, this one records the
+// current user's own history for it at users/{uid}/plays/{puzzleId}.
+// Overwrites (not accumulates) any prior play of the same puzzle by this
+// user, since the doc ID is the puzzleId itself: replaying a puzzle updates
+// its history entry to the latest attempt rather than growing a list.
+export async function recordUserPlay(
+  puzzleId: string,
+  difficulty: Difficulty,
+  mistakes: number,
+  elapsedMs: number,
+): Promise<void> {
+  const user = await ensureAnonymousAuth();
+  const ref = doc(requireDb(), 'users', user.uid, 'plays', puzzleId);
+  await setDoc(ref, {
+    difficulty,
+    mistakes,
+    elapsedMs,
+    completedAt: serverTimestamp(),
   });
 }

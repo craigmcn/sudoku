@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   increment: vi.fn((n: number) => ({ __increment: n })),
   runTransaction: vi.fn(),
   serverTimestamp: vi.fn(() => '__serverTimestamp__'),
+  setDoc: vi.fn(),
   updateDoc: vi.fn(),
   auth: { __auth: true } as { __auth: true } | undefined,
   db: { __db: true } as { __db: true } | undefined,
@@ -23,6 +24,7 @@ vi.mock('firebase/firestore', () => ({
   increment: mocks.increment,
   runTransaction: mocks.runTransaction,
   serverTimestamp: mocks.serverTimestamp,
+  setDoc: mocks.setDoc,
   updateDoc: mocks.updateDoc,
 }));
 
@@ -66,7 +68,9 @@ describe('ensureAnonymousAuth', () => {
     mocks.auth = undefined;
     const { ensureAnonymousAuth } = await import('./stats');
 
-    await expect(ensureAnonymousAuth()).rejects.toThrow('Firebase Auth is not configured');
+    await expect(ensureAnonymousAuth()).rejects.toThrow(
+      'Firebase Auth is not configured',
+    );
     expect(mocks.onAuthStateChanged).not.toHaveBeenCalled();
   });
 
@@ -168,9 +172,9 @@ describe('recordPuzzleStart', () => {
     mocks.db = undefined;
 
     const { recordPuzzleStart } = await import('./stats');
-    await expect(recordPuzzleStart('abc123', 'easy', testBoard, 'abc123')).rejects.toThrow(
-      'Firebase Firestore is not configured',
-    );
+    await expect(
+      recordPuzzleStart('abc123', 'easy', testBoard, 'abc123'),
+    ).rejects.toThrow('Firebase Firestore is not configured');
 
     expect(mocks.runTransaction).not.toHaveBeenCalled();
   });
@@ -189,5 +193,51 @@ describe('recordPuzzleCompletion', () => {
       completions: { __increment: 1 },
       totalPlayTimeMs: { __increment: 90_000 },
     });
+  });
+});
+
+describe('recordUserPlay', () => {
+  beforeEach(() => {
+    mockAuthEmissions(testUser);
+  });
+
+  it('writes to users/{uid}/plays/{puzzleId} with the play details', async () => {
+    const { recordUserPlay } = await import('./stats');
+    await recordUserPlay('abc123', 'hard', 2, 90_000);
+
+    expect(mocks.doc).toHaveBeenCalledWith(
+      expect.anything(),
+      'users',
+      testUser.uid,
+      'plays',
+      'abc123',
+    );
+    expect(mocks.setDoc).toHaveBeenCalledWith(expect.anything(), {
+      difficulty: 'hard',
+      mistakes: 2,
+      elapsedMs: 90_000,
+      completedAt: '__serverTimestamp__',
+    });
+  });
+
+  it('overwrites (does not merge) a prior play of the same puzzle', async () => {
+    const { recordUserPlay } = await import('./stats');
+    await recordUserPlay('abc123', 'easy', 0, 60_000);
+
+    // setDoc called with just (ref, data) — no { merge: true } — so a repeat
+    // play of the same puzzle fully replaces the prior attempt's doc.
+    expect(mocks.setDoc).toHaveBeenCalledTimes(1);
+    expect(mocks.setDoc.mock.calls[0]).toHaveLength(2);
+  });
+
+  it('rejects without writing when Firestore failed to initialize', async () => {
+    mocks.db = undefined;
+
+    const { recordUserPlay } = await import('./stats');
+    await expect(recordUserPlay('abc123', 'easy', 0, 60_000)).rejects.toThrow(
+      'Firebase Firestore is not configured',
+    );
+
+    expect(mocks.setDoc).not.toHaveBeenCalled();
   });
 });

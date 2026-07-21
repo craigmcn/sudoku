@@ -84,6 +84,37 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // users/{uid}/plays/{puzzleId} — per-user play history (#26). Only the
+    // owning uid (anonymous or a real linked account, see #17/#25) may read
+    // or write their own history; nobody else can even read it.
+    //
+    // Doc ID is puzzleId, not an auto-ID: replaying the same puzzle
+    // overwrites the previous entry for it rather than accumulating one doc
+    // per attempt — see CLAUDE.md for why. That means create and update need
+    // the same validation, since a client can't tell in advance which one a
+    // given write will be.
+    //
+    // completedAt must equal request.time (the serverTimestamp() sentinel's
+    // resolved value at request evaluation) so a client can't backdate or
+    // fabricate the timestamp.
+    match /users/{uid}/plays/{puzzleId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly([
+             'difficulty', 'mistakes', 'elapsedMs', 'completedAt'
+           ])
+        && request.resource.data.difficulty in ['easy', 'normal', 'hard', 'expert']
+        && request.resource.data.mistakes is int
+        && request.resource.data.mistakes >= 0
+        && request.resource.data.elapsedMs is int
+        && request.resource.data.elapsedMs >= 0
+        && request.resource.data.elapsedMs <= 21600000
+        && request.resource.data.completedAt == request.time;
+
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
