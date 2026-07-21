@@ -97,6 +97,17 @@ service cloud.firestore {
     // completedAt must equal request.time (the serverTimestamp() sentinel's
     // resolved value at request evaluation) so a client can't backdate or
     // fabricate the timestamp.
+    //
+    // mistakes has no natural per-cell ceiling (re-entering a wrong digit in
+    // the same cell repeatedly keeps counting, see game.ts), so 9999 is just
+    // a generous round-number ceiling against a fabricated value (#32)
+    // rather than a real gameplay bound.
+    //
+    // elapsedMs is capped at 24h (86400000ms) rather than the 6h bound used
+    // for puzzles/{puzzleId}'s counters — this field is a single session's
+    // absolute elapsed time, not an increment, and an uninterrupted solve
+    // session can legitimately run long (#33); 24h is still a sanity ceiling
+    // against a fabricated value, not an expected real duration.
     match /users/{uid}/plays/{puzzleId} {
       allow read: if request.auth != null && request.auth.uid == uid;
 
@@ -107,9 +118,10 @@ service cloud.firestore {
         && request.resource.data.difficulty in ['easy', 'normal', 'hard', 'expert']
         && request.resource.data.mistakes is int
         && request.resource.data.mistakes >= 0
+        && request.resource.data.mistakes <= 9999
         && request.resource.data.elapsedMs is int
         && request.resource.data.elapsedMs >= 0
-        && request.resource.data.elapsedMs <= 21600000
+        && request.resource.data.elapsedMs <= 86400000
         && request.resource.data.completedAt == request.time;
 
       allow delete: if false;
