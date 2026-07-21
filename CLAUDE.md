@@ -250,3 +250,16 @@ Closes #32, #33, #34 — three follow-ups from #26/PR #31's review, all touching
 - **Live-verified against the real `sudoku-craigmcn` project** — same pattern as every prior `firestore.rules` change in this repo: paste the new rules into Firebase Console → Firestore Database → Rules → Publish, then run a scratch script (not committed) covering all 6 cases (baseline valid write, `mistakes` at/over the new bound, `elapsedMs` at/over the new bound, both spoofed-`completedAt` shapes). All 6 behaved as intended on the first fully-published run.
 
 **Outstanding / next:** none for this issue.
+
+## Sign-out button visual bug (2026-07-21)
+
+Closes #37 — "the sign-out button appears to do nothing."
+
+**Root cause:** `public/styles.css` only defined `.overlay.hidden { display: none; }`. Every other user of the `hidden` class (`#loading`, `#overlay`, `#pauseOverlay`, `#signInOverlay`, `#statsOverlay`) also carries the `.overlay` class, so that compound selector covered them. `#btnSignIn`/`#signedInInfo` (the header sign-in/sign-out elements toggled by `renderAuthState()` in [src/main.ts](src/main.ts)) are plain `.pause-btn`/`.signed-in-info` elements, not `.overlay` — so `classList.toggle('hidden', ...)` was flipping a class with no matching CSS rule, and both elements stayed visually present (`display: flex`) regardless of auth state. `renderAuthState`'s JS logic was correct the whole time; confirmed live via a scratch Playwright script (not committed) that read `getComputedStyle(...).display` before and after the fix.
+
+**Fix:** generalized the rule in [public/styles.css](public/styles.css) to `.hidden { display: none; }`. Verified this doesn't regress the overlay elements (all already carry both `.overlay` and `.hidden` together in `index.html`, so the broader selector still matches them) — re-ran the same scratch script against `#loading`/`#pauseOverlay` before/after toggling pause, plus the full `yarn test:e2e` suite (7/7 pass) and `yarn test:run` (130/130 pass).
+
+**Key decisions:**
+
+- **No eager `ensureAnonymousAuth()` call added to `handleSignOut`** — considered per the issue's own checklist, but every call site that needs a uid after sign-out (`recordPuzzleStart`, `recordPuzzleCompletion`, `recordUserPlay`, `fetchUserPlays`) already calls `ensureAnonymousAuth()` itself and lazily re-signs-in anonymously on demand (see `stats.ts`). Adding an eager call in `handleSignOut` would be redundant with that existing lazy-idempotent pattern, not a fix for anything broken.
+- **No new user-facing error UI for sign-out failure** — `handleSignOut`'s `catch` still only `console.warn`s, matching this repo's existing "never block on a non-critical backend failure" tolerance used elsewhere (`recordPuzzleStart`/`recordPuzzleCompletion` etc.). The reported symptom was fully explained by the CSS bug above; no evidence of `signOutUser()` actually throwing in practice, so no speculative UI was added for it.
