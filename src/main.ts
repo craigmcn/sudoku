@@ -11,7 +11,11 @@ import {
   togglePause,
   getConflicts,
 } from './game';
-import { recordPuzzleCompletion, recordPuzzleStart } from './stats';
+import {
+  recordPuzzleCompletion,
+  recordPuzzleStart,
+  recordUserPlay,
+} from './stats';
 import { loadGame, saveGame } from './persistedGame';
 import {
   cacheDailyPuzzles,
@@ -392,6 +396,12 @@ function handleVictory(): void {
       (err: unknown) =>
         console.warn('Failed to record puzzle completion:', err),
     );
+    recordUserPlay(
+      state!.puzzleId,
+      state!.difficulty,
+      state!.mistakes,
+      elapsed * 1000,
+    ).catch((err: unknown) => console.warn('Failed to record user play:', err));
   }
 }
 
