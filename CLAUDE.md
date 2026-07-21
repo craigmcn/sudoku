@@ -232,3 +232,21 @@ Implements issue #27 — the read/display side of #26's per-user play history, b
 - **`openStatsOverlay()`/`closeStatsOverlay()` guarded by a `statsRequestId` counter** — flagged by Copilot on PR #36: with no guard, rapid re-clicks of `#btnStats` (or closing the overlay while a fetch was in flight) could let a slower, earlier `fetchUserPlays()` call resolve after a newer one and overwrite the display with stale data. Fixed with the same generation-counter pattern `startNewGame()` already uses for the identical race (`gameGeneration`): `openStatsOverlay()` captures its own `statsRequestId` and re-checks it after the `await` before rendering; `closeStatsOverlay()` also bumps it, invalidating any in-flight load. Verified manually by firing open/close/open/close/open in immediate succession and confirming the view settles on a coherent final render with no console errors, matching how the `gameGeneration` guard was verified.
 
 **Outstanding / next:** #27 complete. #12 (Firebase login + per-user stats umbrella) is now fully implemented end-to-end (#17, #25, #26, #27 all done).
+
+## Plays rules hardening (2026-07-21)
+
+Closes #32, #33, #34 — three follow-ups from #26/PR #31's review, all touching the same `users/{uid}/plays/{puzzleId}` rule in [firestore.rules](firestore.rules), bundled into one PR since they're one reviewable change to one rule rather than unrelated fixes.
+
+**Completed:**
+
+- **#32** — added an upper bound on `mistakes` (`<= 9999`), matching the `is int && >= 0` checks already in place for the lower bound.
+- **#33** — raised the `elapsedMs` ceiling from 6h (21600000ms, copied from the unrelated `puzzles/{puzzleId}` counter-increment bound) to 24h (86400000ms), since this field is a single session's absolute elapsed time, not an increment — an uninterrupted solve session can legitimately run long, and the original 6h bound was silently dropping those sessions' history writes entirely (caught by `console.warn`, never surfaced to the player).
+- **#34** — extended the live smoke-test script (scratch, not committed, same pattern as #26/#31's verification) with cases for a spoofed `completedAt` (both a fixed `Timestamp` and a plain `new Date()`), confirming both are rejected.
+
+**Key decisions:**
+
+- **9999 for `mistakes`, not 81** — the issue's own suggestion (`<= 81`, "can't exceed one wrong entry per cell") doesn't hold: `game.ts`'s mistake counter increments on every wrong entry, including repeated wrong entries in the same cell, so 81 isn't an actual gameplay ceiling and would have rejected legitimate rough play sessions. 9999 is a generous round-number ceiling against a fabricated value, matching the spirit of the existing bounds elsewhere in this file, not a real gameplay bound.
+- **Raised the cap rather than clamping `elapsedMs` client-side** — the issue's proposed alternative (clamp in `stats.ts` before writing) was rejected: clamping loses precision on the exact rare long session that would trigger it, where simply raising the ceiling preserves the real value and needs no client-side code change.
+- **Live-verified against the real `sudoku-craigmcn` project** — same pattern as every prior `firestore.rules` change in this repo: paste the new rules into Firebase Console → Firestore Database → Rules → Publish, then run a scratch script (not committed) covering all 6 cases (baseline valid write, `mistakes` at/over the new bound, `elapsedMs` at/over the new bound, both spoofed-`completedAt` shapes). All 6 behaved as intended on the first fully-published run.
+
+**Outstanding / next:** none for this issue.
