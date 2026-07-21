@@ -4,8 +4,14 @@ import { Board } from './solver';
 const mocks = vi.hoisted(() => ({
   onAuthStateChanged: vi.fn(),
   signInAnonymously: vi.fn(() => Promise.resolve()),
+  collection: vi.fn(() => ({ __collection: true })),
   doc: vi.fn(() => ({ __ref: true })),
+  getDocs: vi.fn(),
   increment: vi.fn((n: number) => ({ __increment: n })),
+  orderBy: vi.fn((field: string, direction: string) => ({
+    __orderBy: [field, direction],
+  })),
+  query: vi.fn((...args: unknown[]) => ({ __query: args })),
   runTransaction: vi.fn(),
   serverTimestamp: vi.fn(() => '__serverTimestamp__'),
   setDoc: vi.fn(),
@@ -20,8 +26,12 @@ vi.mock('firebase/auth', () => ({
 }));
 
 vi.mock('firebase/firestore', () => ({
+  collection: mocks.collection,
   doc: mocks.doc,
+  getDocs: mocks.getDocs,
   increment: mocks.increment,
+  orderBy: mocks.orderBy,
+  query: mocks.query,
   runTransaction: mocks.runTransaction,
   serverTimestamp: mocks.serverTimestamp,
   setDoc: mocks.setDoc,
@@ -239,5 +249,92 @@ describe('recordUserPlay', () => {
     );
 
     expect(mocks.setDoc).not.toHaveBeenCalled();
+  });
+});
+
+describe('fetchUserPlays', () => {
+  beforeEach(() => {
+    mockAuthEmissions(testUser);
+  });
+
+  function fakeTimestamp(date: Date) {
+    return { toDate: () => date };
+  }
+
+  it('queries users/{uid}/plays ordered by completedAt descending', async () => {
+    mocks.getDocs.mockResolvedValue({ docs: [] });
+
+    const { fetchUserPlays } = await import('./stats');
+    await fetchUserPlays();
+
+    expect(mocks.collection).toHaveBeenCalledWith(
+      expect.anything(),
+      'users',
+      testUser.uid,
+      'plays',
+    );
+    expect(mocks.orderBy).toHaveBeenCalledWith('completedAt', 'desc');
+  });
+
+  it('maps each doc to a UserPlay, converting the Timestamp to a Date', async () => {
+    const completedAt = new Date('2026-07-21T12:00:00Z');
+    mocks.getDocs.mockResolvedValue({
+      docs: [
+        {
+          id: 'puzzle-1',
+          data: () => ({
+            difficulty: 'hard',
+            mistakes: 3,
+            elapsedMs: 120_000,
+            completedAt: fakeTimestamp(completedAt),
+          }),
+        },
+      ],
+    });
+
+    const { fetchUserPlays } = await import('./stats');
+    const plays = await fetchUserPlays();
+
+    expect(plays).toEqual([
+      {
+        puzzleId: 'puzzle-1',
+        difficulty: 'hard',
+        mistakes: 3,
+        elapsedMs: 120_000,
+        completedAt,
+      },
+    ]);
+  });
+
+  it('falls back to a null completedAt when the field is missing', async () => {
+    mocks.getDocs.mockResolvedValue({
+      docs: [
+        {
+          id: 'puzzle-1',
+          data: () => ({
+            difficulty: 'easy',
+            mistakes: 0,
+            elapsedMs: 30_000,
+            completedAt: null,
+          }),
+        },
+      ],
+    });
+
+    const { fetchUserPlays } = await import('./stats');
+    const plays = await fetchUserPlays();
+
+    expect(plays[0].completedAt).toBeNull();
+  });
+
+  it('rejects without querying when Firestore failed to initialize', async () => {
+    mocks.db = undefined;
+
+    const { fetchUserPlays } = await import('./stats');
+    await expect(fetchUserPlays()).rejects.toThrow(
+      'Firebase Firestore is not configured',
+    );
+
+    expect(mocks.getDocs).not.toHaveBeenCalled();
   });
 });

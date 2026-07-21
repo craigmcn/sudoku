@@ -30,6 +30,9 @@
         <button id="btnPause" class="pause-btn" disabled aria-label="Pause timer">
           <i class="fa-sharp fa-light fa-pause"></i>
         </button>
+        <button id="btnStats" class="pause-btn" aria-label="View stats">
+          <i class="fa-sharp fa-light fa-chart-simple"></i>
+        </button>
         <button id="btnSignIn" class="pause-btn" aria-label="Sign in">
           <i class="fa-sharp fa-light fa-user"></i>
         </button>
@@ -140,6 +143,16 @@
         </div>
         <p id="signInStatus" class="sign-in-status" role="status"></p>
         <button id="btnCloseSignIn" class="action-btn">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Stats overlay -->
+    <div id="statsOverlay" class="overlay hidden">
+      <div class="modal modal-stats">
+        <div class="modal-icon modal-icon-neutral"><i class="fa-sharp fa-light fa-chart-simple"></i></div>
+        <h2>Your Stats</h2>
+        <div id="statsContent" class="stats-content"></div>
+        <button id="btnCloseStats" class="action-btn">Close</button>
       </div>
     </div>
   </div>

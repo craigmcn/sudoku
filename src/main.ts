@@ -12,10 +12,17 @@ import {
   getConflicts,
 } from './game';
 import {
+  fetchUserPlays,
   recordPuzzleCompletion,
   recordPuzzleStart,
   recordUserPlay,
+  type UserPlay,
 } from './stats';
+import {
+  formatDifficultyLabel,
+  formatElapsed,
+  summarizeByDifficulty,
+} from './statsView';
 import { loadGame, saveGame } from './persistedGame';
 import {
   cacheDailyPuzzles,
@@ -64,6 +71,10 @@ const emailLinkInput = document.getElementById(
 const btnEmailLinkSignIn = document.getElementById('btnEmailLinkSignIn')!;
 const signInStatusEl = document.getElementById('signInStatus')!;
 const btnCloseSignIn = document.getElementById('btnCloseSignIn')!;
+const btnStats = document.getElementById('btnStats')!;
+const statsOverlay = document.getElementById('statsOverlay')!;
+const statsContent = document.getElementById('statsContent')!;
+const btnCloseStats = document.getElementById('btnCloseStats')!;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -462,6 +473,107 @@ async function handleSignOut(): Promise<void> {
   }
 }
 
+// ── Stats ─────────────────────────────────────────────────────────────────────
+
+const RECENT_PLAYS_LIMIT = 10;
+const DISPLAY_DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard', 'expert'];
+
+function renderStatsMessage(text: string, className: string): void {
+  statsContent.innerHTML = '';
+  const p = document.createElement('p');
+  p.className = className;
+  p.textContent = text;
+  statsContent.appendChild(p);
+}
+
+function renderStatsData(plays: UserPlay[]): void {
+  statsContent.innerHTML = '';
+
+  if (plays.length === 0) {
+    renderStatsMessage(
+      'No completed puzzles yet — solve one to see your stats here.',
+      'stats-empty',
+    );
+    return;
+  }
+
+  const summary = summarizeByDifficulty(plays);
+
+  const grid = document.createElement('div');
+  grid.className = 'stats-difficulty-grid';
+  for (const difficulty of DISPLAY_DIFFICULTIES) {
+    const s = summary[difficulty];
+    const card = document.createElement('div');
+    card.className = 'stats-difficulty-card';
+
+    const heading = document.createElement('h3');
+    heading.textContent = formatDifficultyLabel(difficulty);
+    card.appendChild(heading);
+
+    const completed = document.createElement('p');
+    completed.textContent = `${s.completions} completed`;
+    card.appendChild(completed);
+
+    if (s.completions > 0) {
+      const best = document.createElement('p');
+      best.textContent = `Best: ${formatElapsed(s.bestMs!)}`;
+      card.appendChild(best);
+
+      const avg = document.createElement('p');
+      avg.textContent = `Avg: ${formatElapsed(s.avgMs!)}`;
+      card.appendChild(avg);
+    }
+
+    grid.appendChild(card);
+  }
+  statsContent.appendChild(grid);
+
+  const recentSection = document.createElement('div');
+  recentSection.className = 'stats-section';
+  const recentHeading = document.createElement('h3');
+  recentHeading.textContent = 'Recent games';
+  recentSection.appendChild(recentHeading);
+
+  const list = document.createElement('ul');
+  list.className = 'stats-recent-list';
+  for (const play of plays.slice(0, RECENT_PLAYS_LIMIT)) {
+    const item = document.createElement('li');
+    item.className = 'stats-recent-item';
+
+    const label = document.createElement('span');
+    const mistakeLabel = `${play.mistakes} mistake${play.mistakes !== 1 ? 's' : ''}`;
+    label.textContent = `${formatDifficultyLabel(play.difficulty)} · ${formatElapsed(play.elapsedMs)} · ${mistakeLabel}`;
+    item.appendChild(label);
+
+    const date = document.createElement('span');
+    date.textContent = play.completedAt
+      ? play.completedAt.toLocaleDateString()
+      : '';
+    item.appendChild(date);
+
+    list.appendChild(item);
+  }
+  recentSection.appendChild(list);
+  statsContent.appendChild(recentSection);
+}
+
+async function openStatsOverlay(): Promise<void> {
+  statsOverlay.classList.remove('hidden');
+  renderStatsMessage('Loading…', 'stats-loading');
+
+  try {
+    const plays = await fetchUserPlays();
+    renderStatsData(plays);
+  } catch (err) {
+    renderStatsMessage('Stats unavailable right now.', 'stats-error');
+    console.warn('Failed to load stats:', err);
+  }
+}
+
+function closeStatsOverlay(): void {
+  statsOverlay.classList.add('hidden');
+}
+
 // ── Event handlers ────────────────────────────────────────────────────────────
 
 function handleCellClick(row: number, col: number): void {
@@ -639,6 +751,9 @@ function init(): void {
   btnGoogleSignIn.addEventListener('click', () => handleGoogleSignIn());
   btnEmailLinkSignIn.addEventListener('click', () => handleEmailLinkSignIn());
   btnSignOut.addEventListener('click', () => handleSignOut());
+
+  btnStats.addEventListener('click', () => openStatsOverlay());
+  btnCloseStats.addEventListener('click', closeStatsOverlay);
 
   onAuthChange(renderAuthState);
   // Completes a passwordless sign-in if the page was just opened from an
