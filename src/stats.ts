@@ -4,11 +4,16 @@ import {
   type User,
 } from 'firebase/auth';
 import {
+  collection,
   doc,
+  getDocs,
   increment,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  type Timestamp,
 } from 'firebase/firestore';
 import type { Difficulty } from './generator';
 import { auth } from './firebase';
@@ -122,5 +127,41 @@ export async function recordUserPlay(
     mistakes,
     elapsedMs,
     completedAt: serverTimestamp(),
+  });
+}
+
+export interface UserPlay {
+  puzzleId: string;
+  difficulty: Difficulty;
+  mistakes: number;
+  elapsedMs: number;
+  completedAt: Date | null;
+}
+
+// Reads the current uid's own play history (anonymous or a real linked
+// account, see #17/#25), most-recent completion first. Used by the
+// stats/profile view (#27); firestore.rules restricts read access to
+// request.auth.uid == uid, so this only ever returns the caller's own data.
+export async function fetchUserPlays(): Promise<UserPlay[]> {
+  const user = await ensureAnonymousAuth();
+  const q = query(
+    collection(requireDb(), 'users', user.uid, 'plays'),
+    orderBy('completedAt', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const data = d.data() as {
+      difficulty: Difficulty;
+      mistakes: number;
+      elapsedMs: number;
+      completedAt: Timestamp | null;
+    };
+    return {
+      puzzleId: d.id,
+      difficulty: data.difficulty,
+      mistakes: data.mistakes,
+      elapsedMs: data.elapsedMs,
+      completedAt: data.completedAt ? data.completedAt.toDate() : null,
+    };
   });
 }
