@@ -62,6 +62,10 @@ const btnDailyRandom = document.getElementById('btnDailyRandom')!;
 const btnSignIn = document.getElementById('btnSignIn')!;
 const signedInInfo = document.getElementById('signedInInfo')!;
 const signedInLabel = document.getElementById('signedInLabel')!;
+const signedInAvatarImg = document.getElementById(
+  'signedInAvatarImg',
+)! as HTMLImageElement;
+const signedInAvatarIcon = document.getElementById('signedInAvatarIcon')!;
 const btnSignOut = document.getElementById('btnSignOut')!;
 const signInOverlay = document.getElementById('signInOverlay')!;
 const btnGoogleSignIn = document.getElementById('btnGoogleSignIn')!;
@@ -74,6 +78,16 @@ const btnCloseSignIn = document.getElementById('btnCloseSignIn')!;
 const btnStats = document.getElementById('btnStats')!;
 const statsOverlay = document.getElementById('statsOverlay')!;
 const statsContent = document.getElementById('statsContent')!;
+const btnMenu = document.getElementById('btnMenu')! as HTMLButtonElement;
+const btnCloseMenu = document.getElementById('btnCloseMenu')! as HTMLButtonElement;
+const secondaryNav = document.getElementById('secondaryNav')!;
+const drawerBackdrop = document.getElementById('drawerBackdrop')!;
+// Must stay in sync with the drawer breakpoint in public/styles.css — used
+// to decide whether the closed drawer should be `inert` (off-canvas, mobile
+// mode) or left interactive (a normal inline row, desktop mode).
+const drawerMediaQuery = window.matchMedia(
+  '(max-width: 32.5rem), (max-height: 50rem)',
+);
 const btnCloseStats = document.getElementById('btnCloseStats')!;
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -416,6 +430,45 @@ function handleVictory(): void {
   }
 }
 
+// ── Mobile drawer ─────────────────────────────────────────────────────────────
+// #secondaryNav (daily puzzle + stats/account) becomes a slide-in drawer at
+// mobile widths (see #35) — the hamburger/backdrop/Escape wiring below is a
+// no-op visually at desktop widths since .menu-btn is hidden there and
+// nothing ever calls openDrawer().
+
+function openDrawer(): void {
+  secondaryNav.classList.add('open');
+  secondaryNav.inert = false;
+  secondaryNav.setAttribute('role', 'dialog');
+  secondaryNav.setAttribute('aria-modal', 'true');
+  drawerBackdrop.classList.remove('hidden');
+  btnMenu.setAttribute('aria-expanded', 'true');
+  btnCloseMenu.focus();
+}
+
+// Called from every "the drawer should no longer be open" site — action
+// buttons inside it (which move focus/context elsewhere themselves), the
+// resize listener, and dismissDrawer() below. Doesn't touch focus itself;
+// callers that are dismissing the drawer without taking another action
+// (close button, backdrop, Escape) use dismissDrawer() instead so focus
+// returns to #btnMenu rather than being left wherever it was.
+function closeDrawer(): void {
+  secondaryNav.classList.remove('open');
+  // Only inert while actually off-canvas (drawer/mobile mode) — on desktop
+  // this is a normal inline row and must stay interactive regardless of
+  // the (there-meaningless) open/closed state.
+  secondaryNav.inert = drawerMediaQuery.matches;
+  secondaryNav.removeAttribute('role');
+  secondaryNav.removeAttribute('aria-modal');
+  drawerBackdrop.classList.add('hidden');
+  btnMenu.setAttribute('aria-expanded', 'false');
+}
+
+function dismissDrawer(): void {
+  closeDrawer();
+  btnMenu.focus();
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 function renderAuthState(user: FirebaseUser | null): void {
@@ -423,7 +476,24 @@ function renderAuthState(user: FirebaseUser | null): void {
   btnSignIn.classList.toggle('hidden', signedIn);
   signedInInfo.classList.toggle('hidden', !signedIn);
   if (signedIn) {
-    signedInLabel.textContent = user!.displayName || user!.email || 'Signed in';
+    const label = user!.displayName || user!.email || 'Signed in';
+    signedInLabel.textContent = label;
+    // Fallback accessible name for the icon-fallback case (no photoURL),
+    // where nothing else in signedInInfo carries the identity when the
+    // text label is visually hidden (desktop, see public/styles.css). Less
+    // reliable than a real element's accessible name since signedInInfo is
+    // a plain, non-focusable <div> — when a real photo is shown, the img's
+    // own `alt` below is the primary/more reliable source instead.
+    signedInInfo.setAttribute('aria-label', label);
+    if (user!.photoURL) {
+      signedInAvatarImg.src = user!.photoURL;
+      signedInAvatarImg.alt = label;
+      signedInAvatarImg.classList.remove('hidden');
+      signedInAvatarIcon.classList.add('hidden');
+    } else {
+      signedInAvatarImg.classList.add('hidden');
+      signedInAvatarIcon.classList.remove('hidden');
+    }
   }
 }
 
@@ -692,12 +762,14 @@ function init(): void {
     });
   });
 
-  btnDaily.addEventListener('click', () =>
-    startDailyGame(difficulty, btnDaily),
-  );
-  btnDailyRandom.addEventListener('click', () =>
-    startDailyGame(dailyRandomDifficulty(todayUtc()), btnDailyRandom),
-  );
+  btnDaily.addEventListener('click', () => {
+    closeDrawer();
+    startDailyGame(difficulty, btnDaily);
+  });
+  btnDailyRandom.addEventListener('click', () => {
+    closeDrawer();
+    startDailyGame(dailyRandomDifficulty(todayUtc()), btnDailyRandom);
+  });
 
   // New Game / Play Again always start a fresh random puzzle, matching
   // pre-daily-puzzle behavior, even if a daily puzzle was active.
@@ -756,14 +828,41 @@ function init(): void {
     if (state) saveGame(state);
   });
 
-  btnSignIn.addEventListener('click', openSignInOverlay);
+  btnSignIn.addEventListener('click', () => {
+    closeDrawer();
+    openSignInOverlay();
+  });
   btnCloseSignIn.addEventListener('click', closeSignInOverlay);
   btnGoogleSignIn.addEventListener('click', () => handleGoogleSignIn());
   btnEmailLinkSignIn.addEventListener('click', () => handleEmailLinkSignIn());
-  btnSignOut.addEventListener('click', () => handleSignOut());
+  btnSignOut.addEventListener('click', () => {
+    closeDrawer();
+    handleSignOut();
+  });
 
-  btnStats.addEventListener('click', () => openStatsOverlay());
+  btnStats.addEventListener('click', () => {
+    closeDrawer();
+    openStatsOverlay();
+  });
   btnCloseStats.addEventListener('click', closeStatsOverlay);
+
+  btnMenu.addEventListener('click', openDrawer);
+  btnCloseMenu.addEventListener('click', dismissDrawer);
+  drawerBackdrop.addEventListener('click', dismissDrawer);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && secondaryNav.classList.contains('open')) {
+      dismissDrawer();
+    }
+  });
+  // #drawerBackdrop's position:fixed is unconditional (not scoped to the
+  // drawer media query), so resizing/rotating out of drawer mode while open
+  // would otherwise leave it covering the page with no visible hamburger
+  // left to dismiss it — closeDrawer() is a no-op if already closed. Not
+  // dismissDrawer(): a resize shouldn't steal focus to #btnMenu.
+  window.addEventListener('resize', () => closeDrawer());
+  // Establishes the correct initial `inert` state for #secondaryNav (see
+  // closeDrawer()) — neither open nor close has run yet at page load.
+  closeDrawer();
 
   onAuthChange(renderAuthState);
   // Completes a passwordless sign-in if the page was just opened from an

@@ -30,37 +30,66 @@
         <button id="btnPause" class="pause-btn" disabled aria-label="Pause timer">
           <i class="fa-sharp fa-light fa-pause"></i>
         </button>
-        <button id="btnStats" class="pause-btn" aria-label="View stats">
-          <i class="fa-sharp fa-light fa-chart-simple"></i>
+        <button
+          id="btnMenu"
+          class="pause-btn menu-btn"
+          aria-label="Open menu"
+          aria-expanded="false"
+          aria-controls="secondaryNav"
+        >
+          <i class="fa-sharp fa-light fa-bars"></i>
         </button>
-        <button id="btnSignIn" class="pause-btn" aria-label="Sign in">
+      </div>
+    </header>
+
+    <div id="drawerBackdrop" class="drawer-backdrop hidden"></div>
+
+    <nav id="secondaryNav" class="secondary-nav">
+      <button id="btnCloseMenu" class="pause-btn close-menu-btn" aria-label="Close menu">
+        <i class="fa-sharp fa-light fa-xmark"></i>
+      </button>
+
+      <div class="daily-nav">
+        <button id="btnDaily" class="daily-btn">
+          <i class="fa-sharp fa-light fa-calendar-day"></i>
+          <span>Today's Puzzle</span>
+        </button>
+        <button id="btnDailyRandom" class="daily-btn">
+          <i class="fa-sharp fa-light fa-shuffle"></i>
+          <span>Daily Random</span>
+        </button>
+      </div>
+
+      <div class="account-nav">
+        <button id="btnStats" class="daily-btn">
+          <i class="fa-sharp fa-light fa-chart-simple"></i>
+          <span>Stats</span>
+        </button>
+        <button id="btnSignIn" class="daily-btn">
           <i class="fa-sharp fa-light fa-user"></i>
+          <span>Sign in</span>
         </button>
         <div id="signedInInfo" class="signed-in-info hidden">
+          <img id="signedInAvatarImg" class="signed-in-avatar hidden" alt="" />
+          <i
+            id="signedInAvatarIcon"
+            class="fa-sharp fa-light fa-circle-user signed-in-avatar-icon"
+            aria-hidden="true"
+          ></i>
           <span id="signedInLabel" class="signed-in-label"></span>
-          <button id="btnSignOut" class="pause-btn" aria-label="Sign out">
+          <button id="btnSignOut" class="daily-btn signout-btn" aria-label="Sign out">
             <i class="fa-sharp fa-light fa-arrow-right-from-bracket"></i>
+            <span class="signout-label">Sign out</span>
           </button>
         </div>
       </div>
-    </header>
+    </nav>
 
     <nav class="difficulty-nav">
       <button class="diff-btn active" data-diff="easy">Easy</button>
       <button class="diff-btn" data-diff="normal">Normal</button>
       <button class="diff-btn" data-diff="hard">Hard</button>
       <button class="diff-btn" data-diff="expert">Expert</button>
-    </nav>
-
-    <nav class="daily-nav">
-      <button id="btnDaily" class="daily-btn">
-        <i class="fa-sharp fa-light fa-calendar-day"></i>
-        <span>Today's Puzzle</span>
-      </button>
-      <button id="btnDailyRandom" class="daily-btn">
-        <i class="fa-sharp fa-light fa-shuffle"></i>
-        <span>Daily Random</span>
-      </button>
     </nav>
 
     <main class="game-area">

@@ -138,14 +138,10 @@ body {
   cursor: default;
 }
 
-.signed-in-info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
+/* Hidden on desktop (an avatar replaces it, see .signed-in-avatar below);
+   shown again on mobile without truncation, see the responsive block. */
 .signed-in-label {
-  max-width: 8rem;
+  display: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -181,10 +177,84 @@ body {
 .diff-btn:hover  { background: var(--btn-hover); color: var(--primary); }
 .diff-btn.active { background: var(--primary); color: #fff; font-weight: 600; }
 
-/* ── Daily puzzle nav ────────────────────────────────────────────────────── */
+/* ── Secondary nav (daily puzzle + account) ─────────────────────────────────
+   A single nav groups the daily-puzzle buttons with the stats/account
+   controls (previously split between here and .header-right) so that, at
+   mobile widths, the whole thing can become one slide-in drawer without
+   duplicating any button. Desktop keeps them as one inline row — see #35. */
+
+.menu-btn,
+.close-menu-btn {
+  display: none;
+}
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 140;
+}
+
+.secondary-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.account-nav {
+  display: flex;
+  flex: 3;
+  gap: 0.5rem;
+}
+
+.signed-in-info {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+  gap: 0.5rem;
+}
+
+.signed-in-avatar,
+.signed-in-avatar-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.signed-in-avatar {
+  object-fit: cover;
+}
+
+/* #signedInAvatarIcon (id, not just .signed-in-avatar-icon) for `display`:
+   the Font Awesome kit's own stylesheet sets `.fa-sharp { display: ... }`
+   at the same (0,1,0) specificity and loads asynchronously, so it can win
+   this property by cascade order alone unless we out-specify it. */
+#signedInAvatarIcon.signed-in-avatar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--grey600);
+}
+
+/* Same Font Awesome specificity tie as above, but for main.ts's JS toggle
+   between the avatar photo and this fallback icon (`.hidden` alone loses to
+   `.fa-sharp` on an <i> element specifically — every other `.hidden` use in
+   this app is on a plain button/div, which isn't affected). */
+#signedInAvatarIcon.hidden {
+  display: none;
+}
+
+/* Icon-only on desktop with an accessible name via aria-label on the button
+   itself; the visible label re-appears on mobile (see responsive block). */
+.signout-label {
+  display: none;
+}
 
 .daily-nav {
   display: flex;
+  flex: 4;
   gap: 0.5rem;
 }
 
@@ -204,6 +274,7 @@ body {
   cursor: pointer;
   box-shadow: var(--shadow);
   transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
 }
 
 .daily-btn:hover {
@@ -593,8 +664,20 @@ body {
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 
-@media (max-width: 32.5rem) {
-  :root { --cell-size: calc((100vw - 2.5rem) / 9); }
+/* Narrow-width (phones) OR short-height (tablet/mid-range windows, e.g. a
+   1024x768 landscape iPad or a shortish laptop browser) both get the same
+   compact/drawer treatment — the trigger differs, but in both cases the
+   goal is the same: keep the numpad reachable without scrolling. --cell-size
+   below takes whichever of the two constraints is tighter, so a wide-but-
+   short viewport (large 100vw, small 100vh) still shrinks the board instead
+   of the vw term winning and making cells *larger* than the default. */
+@media (max-width: 32.5rem), (max-height: 50rem) {
+  :root {
+    --cell-size: min(
+      calc((100vw - 2.5rem) / 9),
+      calc((100vh - 23rem) / 9)
+    );
+  }
 
   body { padding: 0.75rem; }
 
@@ -602,4 +685,71 @@ body {
   .note        { font-size: 0.5rem; }
   .num-btn     { font-size: 1.125rem; }
   .modal       { padding: 2rem 1.75rem; }
+
+  /* Secondary nav (daily puzzle + stats/account) becomes a slide-in drawer,
+     opened via the hamburger button that only appears in this mode — see
+     #35. Everything else in the header/difficulty-nav stays inline since
+     it's the essential, always-visible gameplay info. */
+  .menu-btn { display: flex; }
+
+  .secondary-nav {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 80%;
+    max-width: 18rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.25rem;
+    padding: 3.5rem 1.25rem 1.5rem;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    z-index: 150;
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+  }
+
+  .secondary-nav.open { transform: translateX(0); }
+
+  .close-menu-btn {
+    display: flex;
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+  }
+
+  .daily-nav,
+  .account-nav,
+  .signed-in-info {
+    flex-direction: column;
+    flex: none;
+  }
+
+  .signed-in-info {
+    justify-content: flex-start;
+  }
+
+  .secondary-nav .daily-btn {
+    flex: none;
+    justify-content: flex-start;
+  }
+
+  /* Full name/email text (untruncated) instead of the desktop avatar, and a
+     full-text Sign out button instead of desktop's icon-only one — #35
+     follow-up. #signedInAvatarIcon needs the id (see the base rule above)
+     to reliably beat Font Awesome's own same-specificity display rule. */
+  .signed-in-avatar,
+  #signedInAvatarIcon.signed-in-avatar-icon {
+    display: none;
+  }
+
+  .signed-in-label {
+    display: block;
+  }
+
+  .signout-label {
+    display: inline;
+  }
 }
