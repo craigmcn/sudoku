@@ -5,6 +5,7 @@ import {
   canGoToNextMonth,
   canGoToPreviousMonth,
   difficultiesWithCompletions,
+  formatCalendarDayLabel,
   formatMonthLabel,
   isDateSelectable,
   selectableDatesInMonth,
@@ -153,6 +154,13 @@ describe('formatMonthLabel', () => {
   it('formats a human-readable month/year label', () => {
     expect(formatMonthLabel(2026, 6)).toBe('July 2026');
     expect(formatMonthLabel(2026, 0)).toBe('January 2026');
+  });
+});
+
+describe('formatCalendarDayLabel', () => {
+  it('formats a full accessible date label', () => {
+    expect(formatCalendarDayLabel('2026-07-18')).toBe('July 18, 2026');
+    expect(formatCalendarDayLabel('2026-01-01')).toBe('January 1, 2026');
   });
 });
 

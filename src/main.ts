@@ -37,6 +37,7 @@ import {
   canGoToNextMonth,
   canGoToPreviousMonth,
   difficultiesWithCompletions,
+  formatCalendarDayLabel,
   formatMonthLabel,
   isDateSelectable,
   selectableDatesInMonth,
@@ -720,18 +721,19 @@ async function computeCompletedDates(
     MIN_CALENDAR_DATE,
   );
 
-  for (let i = 0; i < dates.length; i++) {
-    const date = dates[i];
+  for (const date of dates) {
     for (const diff of candidateDifficulties) {
       if (playedIds.has(dailyPuzzleId(date, diff))) {
         completed.add(date);
         break;
       }
     }
-    if (i % 5 === 4) {
-      await new Promise((r) => setTimeout(r, 0));
-      if (requestId !== calendarRequestId) return null;
-    }
+    // Yield after every date rather than batching several — a close/nav
+    // should bail within one date's worth of (possibly ~130ms 'expert')
+    // generation, not up to a batch's worth of it (flagged by Copilot on
+    // PR #42).
+    await new Promise((r) => setTimeout(r, 0));
+    if (requestId !== calendarRequestId) return null;
   }
 
   return completed;
@@ -770,6 +772,12 @@ function renderCalendarGrid(days: CalendarDay[]): void {
     if (cell.status === 'completed')
       btn.classList.add('calendar-day-completed');
     if (cell.selectable) btn.dataset.date = cell.date;
+    btn.setAttribute(
+      'aria-label',
+      cell.status === 'completed'
+        ? `${formatCalendarDayLabel(cell.date)}, completed`
+        : formatCalendarDayLabel(cell.date),
+    );
     grid.appendChild(btn);
   }
   calendarContent.appendChild(grid);

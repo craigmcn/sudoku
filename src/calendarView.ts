@@ -153,6 +153,15 @@ export function formatMonthLabel(year: number, month: number): string {
   return `${MONTH_NAMES[month]} ${year}`;
 }
 
+// Full-date accessible label for a calendar day button — a bare day number
+// (e.g. "18") is ambiguous out of context for screen reader users (flagged
+// by Copilot on PR #42). Parses the 'yyyy-mm-dd' string directly rather than
+// going through Date, consistent with this module's string-based date math.
+export function formatCalendarDayLabel(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return `${MONTH_NAMES[month - 1]} ${day}, ${year}`;
+}
+
 export function difficultiesWithCompletions(
   plays: UserPlay[],
 ): Set<Difficulty> {

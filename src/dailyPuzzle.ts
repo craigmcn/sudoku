@@ -12,11 +12,12 @@ export const DAILY_RANDOM_POOL: readonly Difficulty[] = ['easy', 'normal', 'hard
 
 const ALL_DAILY_DIFFICULTIES: readonly Difficulty[] = ['easy', 'normal', 'hard', 'expert'];
 
-// The earliest date the calendar view (#41) can browse back to — the date
-// daily-puzzle support (#18) was first added. No daily puzzle "existed"
-// before this, even though dailySeed/generateDailyPuzzle are technically
-// computable for any date string.
-export const MIN_CALENDAR_DATE = '2026-07-17';
+// The earliest date the calendar view (#41) can browse back to — the start
+// of the month daily-puzzle support (#18) was added in, rounded down to a
+// whole month rather than the exact ship date for a simpler boundary. No
+// daily puzzle "existed" before this, even though dailySeed/generateDailyPuzzle
+// are technically computable for any date string.
+export const MIN_CALENDAR_DATE = '2026-07-01';
 
 // FNV-1a, single pass — same technique as puzzleId.ts's hashSolution, just a
 // plain string->uint32 hash for deriving a deterministic mulberry32 seed
