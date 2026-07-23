@@ -126,3 +126,39 @@ test('new game clears progress and resets the timer and pause state', async ({ p
   await expect(page.locator('#btnPause')).toBeDisabled()
   await expect(page.locator('.cell')).toHaveCount(81)
 })
+
+test('calendar dates before MIN_CALENDAR_DATE are not selectable', async ({ page }) => {
+  // Fix "today" a month past MIN_CALENDAR_DATE (2026-07-01) so the calendar
+  // opens on a month strictly after it, letting the test navigate back to
+  // the boundary month itself rather than depending on the real system date.
+  await page.clock.setFixedTime(new Date('2026-08-15T12:00:00Z'))
+  await page.goto('/')
+  await expect(page.locator('#loading')).toHaveClass(/hidden/)
+
+  // The default 1280×720 Playwright viewport falls under this app's
+  // short-height drawer breakpoint (max-height: 50rem/800px — see #35), so
+  // #btnCalendar lives inside the slide-in drawer rather than the header.
+  await page.locator('#btnMenu').click()
+  await page.locator('#btnCalendar').click()
+  await expect(page.locator('.calendar-grid')).toBeVisible()
+  await expect(page.locator('#calendarMonthLabel')).toHaveText('August 2026')
+
+  await page.locator('#btnCalendarPrev').click()
+  await expect(page.locator('#calendarMonthLabel')).toHaveText('July 2026')
+
+  // The leading padding cells (June) are entirely before MIN_CALENDAR_DATE
+  // and must be disabled with no data-date, so a click can't reach them.
+  const paddingCells = page.locator('.calendar-day-padding')
+  expect(await paddingCells.count()).toBeGreaterThan(0)
+  for (const cell of await paddingCells.all()) {
+    await expect(cell).toBeDisabled()
+    await expect(cell).not.toHaveAttribute('data-date', /.+/)
+  }
+
+  // July 1st (MIN_CALENDAR_DATE itself) is the earliest selectable day.
+  const july1 = page.locator('button[data-date="2026-07-01"]')
+  await expect(july1).toBeEnabled()
+
+  // Previous month (June, entirely before MIN_CALENDAR_DATE) is unreachable.
+  await expect(page.locator('#btnCalendarPrev')).toBeDisabled()
+})
