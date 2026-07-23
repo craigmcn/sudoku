@@ -826,15 +826,20 @@ async function openCalendarOverlay(): Promise<void> {
   calendarOverlay.classList.remove('hidden');
   renderCalendarMessage('Loading…');
 
+  // Browsing/playing a past date needs no completion data at all — only the
+  // 'completed' markers depend on it — so a fetchUserPlays() failure (no
+  // Firebase configured, offline, etc.) degrades to "no known completions"
+  // rather than blocking the whole calendar, matching this repo's "never
+  // let storage/backend issues block gameplay" pattern (see firebase.ts).
   try {
     calendarPlays = await fetchUserPlays();
-    if (requestId !== calendarRequestId) return;
-    await loadAndRenderCalendarMonth(requestId);
   } catch (err) {
     if (requestId !== calendarRequestId) return;
-    renderCalendarMessage('Calendar unavailable right now.');
-    console.warn('Failed to load calendar:', err);
+    calendarPlays = [];
+    console.warn('Failed to load play history for calendar:', err);
   }
+  if (requestId !== calendarRequestId) return;
+  await loadAndRenderCalendarMonth(requestId);
 }
 
 function closeCalendarOverlay(): void {
