@@ -58,6 +58,10 @@
           <i class="fa-sharp fa-light fa-shuffle"></i>
           <span>Daily Random</span>
         </button>
+        <button id="btnCalendar" class="daily-btn">
+          <i class="fa-sharp fa-light fa-calendar"></i>
+          <span>Calendar</span>
+        </button>
       </div>
 
       <div class="account-nav">
@@ -182,6 +186,25 @@
         <h2>Your Stats</h2>
         <div id="statsContent" class="stats-content"></div>
         <button id="btnCloseStats" class="action-btn">Close</button>
+      </div>
+    </div>
+
+    <!-- Calendar overlay -->
+    <div id="calendarOverlay" class="overlay hidden">
+      <div class="modal modal-calendar">
+        <div class="modal-icon modal-icon-neutral"><i class="fa-sharp fa-light fa-calendar"></i></div>
+        <h2>Daily Puzzle Calendar</h2>
+        <div class="calendar-nav">
+          <button id="btnCalendarPrev" class="action-btn calendar-nav-btn" aria-label="Previous month">
+            <i class="fa-sharp fa-light fa-chevron-left"></i>
+          </button>
+          <span id="calendarMonthLabel" class="calendar-month-label"></span>
+          <button id="btnCalendarNext" class="action-btn calendar-nav-btn" aria-label="Next month">
+            <i class="fa-sharp fa-light fa-chevron-right"></i>
+          </button>
+        </div>
+        <div id="calendarContent" class="calendar-content"></div>
+        <button id="btnCloseCalendar" class="action-btn">Close</button>
       </div>
     </div>
   </div>

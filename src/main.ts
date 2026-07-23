@@ -26,10 +26,24 @@ import {
 import { loadGame, saveGame } from './persistedGame';
 import {
   cacheDailyPuzzles,
+  dailyPuzzleId,
   dailyRandomDifficulty,
   dailySeed,
+  MIN_CALENDAR_DATE,
   todayUtc,
 } from './dailyPuzzle';
+import {
+  buildCalendarMonth,
+  canGoToNextMonth,
+  canGoToPreviousMonth,
+  difficultiesWithCompletions,
+  formatCalendarDayLabel,
+  formatMonthLabel,
+  isDateSelectable,
+  selectableDatesInMonth,
+  shiftMonth,
+  type CalendarDay,
+} from './calendarView';
 import {
   completeEmailLinkSignInIfPresent,
   onAuthChange,
@@ -89,6 +103,17 @@ const drawerMediaQuery = window.matchMedia(
   '(max-width: 32.5rem), (max-height: 50rem)',
 );
 const btnCloseStats = document.getElementById('btnCloseStats')!;
+const btnCalendar = document.getElementById('btnCalendar')!;
+const calendarOverlay = document.getElementById('calendarOverlay')!;
+const calendarContent = document.getElementById('calendarContent')!;
+const calendarMonthLabel = document.getElementById('calendarMonthLabel')!;
+const btnCalendarPrev = document.getElementById(
+  'btnCalendarPrev',
+)! as HTMLButtonElement;
+const btnCalendarNext = document.getElementById(
+  'btnCalendarNext',
+)! as HTMLButtonElement;
+const btnCloseCalendar = document.getElementById('btnCloseCalendar')!;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -383,15 +408,16 @@ function setActiveDiffButton(target: Difficulty): void {
   });
 }
 
-// Starts today's puzzle for `targetDifficulty` — deterministic, so every
-// player gets the identical puzzle. `dailyButton` is the button that should
-// show as active (Today's Puzzle vs. Daily Random pick a difficulty
-// differently, but both land here).
+// Starts `date`'s daily puzzle for `targetDifficulty` — deterministic, so
+// every player gets the identical puzzle for that date. `dailyButton` is the
+// nav button that should show as active; a calendar-day click passes its own
+// button element, so this comparison naturally evaluates false for both
+// #btnDaily and #btnDailyRandom, correctly clearing both.
 function startDailyGame(
   targetDifficulty: Difficulty,
+  date: string,
   dailyButton: HTMLElement,
 ): void {
-  const date = todayUtc();
   difficulty = targetDifficulty;
   activeSeed = dailySeed(date, targetDifficulty);
   setActiveDiffButton(targetDifficulty);
@@ -654,6 +680,194 @@ function closeStatsOverlay(): void {
   statsOverlay.classList.add('hidden');
 }
 
+// ── Calendar ──────────────────────────────────────────────────────────────────
+// #41: browse past daily puzzles and see which days are already completed.
+// Completion is derived client-side by recomputing each visible day's puzzle
+// ids (dailyPuzzleId, memoized) and checking them against the signed-in
+// user's completed plays — no new Firestore field/rules needed. Cheapest
+// difficulties are checked first per day, and only difficulties the user has
+// ever completed at all are checked, since generating an 'expert' puzzle
+// (~130ms) for every day in a month would visibly freeze the UI otherwise.
+const CALENDAR_DIFFICULTY_CHECK_ORDER: Difficulty[] = [
+  'easy',
+  'normal',
+  'hard',
+  'expert',
+];
+// Bumped on every open/close/navigate, mirroring statsRequestId — a stale
+// in-flight month scan bails instead of overwriting a newer render.
+let calendarRequestId = 0;
+let calendarYear = 0;
+let calendarMonth = 0;
+let calendarPlays: UserPlay[] = [];
+
+async function computeCompletedDates(
+  year: number,
+  month: number,
+  plays: UserPlay[],
+  requestId: number,
+): Promise<Set<string> | null> {
+  const playedIds = new Set(plays.map((p) => p.puzzleId));
+  const candidateDifficulties = CALENDAR_DIFFICULTY_CHECK_ORDER.filter((d) =>
+    difficultiesWithCompletions(plays).has(d),
+  );
+  const completed = new Set<string>();
+  if (candidateDifficulties.length === 0) return completed;
+
+  const dates = selectableDatesInMonth(
+    year,
+    month,
+    todayUtc(),
+    MIN_CALENDAR_DATE,
+  );
+
+  for (const date of dates) {
+    for (const diff of candidateDifficulties) {
+      if (playedIds.has(dailyPuzzleId(date, diff))) {
+        completed.add(date);
+        break;
+      }
+    }
+    // Yield after every date rather than batching several — a close/nav
+    // should bail within one date's worth of (possibly ~130ms 'expert')
+    // generation, not up to a batch's worth of it (flagged by Copilot on
+    // PR #42).
+    await new Promise((r) => setTimeout(r, 0));
+    if (requestId !== calendarRequestId) return null;
+  }
+
+  return completed;
+}
+
+function renderCalendarMessage(text: string): void {
+  calendarContent.innerHTML = '';
+  const p = document.createElement('p');
+  p.className = 'stats-loading';
+  p.textContent = text;
+  calendarContent.appendChild(p);
+}
+
+const WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+function renderCalendarGrid(days: CalendarDay[]): void {
+  calendarContent.innerHTML = '';
+
+  const weekdayRow = document.createElement('div');
+  weekdayRow.className = 'calendar-weekday-row';
+  for (const label of WEEKDAY_LABELS) {
+    const span = document.createElement('span');
+    span.textContent = label;
+    weekdayRow.appendChild(span);
+  }
+  calendarContent.appendChild(weekdayRow);
+
+  const grid = document.createElement('div');
+  grid.className = 'calendar-grid';
+  for (const cell of days) {
+    const btn = document.createElement('button');
+    btn.className = 'calendar-day';
+    btn.textContent = String(cell.day);
+    btn.disabled = !cell.selectable;
+    if (!cell.inCurrentMonth) btn.classList.add('calendar-day-padding');
+    if (cell.status === 'completed')
+      btn.classList.add('calendar-day-completed');
+    if (cell.selectable) btn.dataset.date = cell.date;
+    btn.setAttribute(
+      'aria-label',
+      cell.status === 'completed'
+        ? `${formatCalendarDayLabel(cell.date)}, completed`
+        : formatCalendarDayLabel(cell.date),
+    );
+    grid.appendChild(btn);
+  }
+  calendarContent.appendChild(grid);
+}
+
+async function loadAndRenderCalendarMonth(requestId: number): Promise<void> {
+  btnCalendarPrev.disabled = !canGoToPreviousMonth(
+    calendarYear,
+    calendarMonth,
+    MIN_CALENDAR_DATE,
+  );
+  btnCalendarNext.disabled = !canGoToNextMonth(
+    calendarYear,
+    calendarMonth,
+    todayUtc(),
+  );
+  calendarMonthLabel.textContent = formatMonthLabel(
+    calendarYear,
+    calendarMonth,
+  );
+  renderCalendarMessage('Loading…');
+
+  const completedDates = await computeCompletedDates(
+    calendarYear,
+    calendarMonth,
+    calendarPlays,
+    requestId,
+  );
+  if (completedDates === null || requestId !== calendarRequestId) return;
+
+  const days = buildCalendarMonth(
+    calendarYear,
+    calendarMonth,
+    todayUtc(),
+    MIN_CALENDAR_DATE,
+    completedDates,
+  );
+  renderCalendarGrid(days);
+}
+
+async function openCalendarOverlay(): Promise<void> {
+  const requestId = ++calendarRequestId;
+  const today = new Date();
+  calendarYear = today.getUTCFullYear();
+  calendarMonth = today.getUTCMonth();
+  calendarOverlay.classList.remove('hidden');
+  renderCalendarMessage('Loading…');
+
+  // Browsing/playing a past date needs no completion data at all — only the
+  // 'completed' markers depend on it — so a fetchUserPlays() failure (no
+  // Firebase configured, offline, etc.) degrades to "no known completions"
+  // rather than blocking the whole calendar, matching this repo's "never
+  // let storage/backend issues block gameplay" pattern (see firebase.ts).
+  try {
+    calendarPlays = await fetchUserPlays();
+  } catch (err) {
+    if (requestId !== calendarRequestId) return;
+    calendarPlays = [];
+    console.warn('Failed to load play history for calendar:', err);
+  }
+  if (requestId !== calendarRequestId) return;
+  await loadAndRenderCalendarMonth(requestId);
+}
+
+function closeCalendarOverlay(): void {
+  calendarRequestId++;
+  calendarOverlay.classList.add('hidden');
+}
+
+function handleCalendarNav(delta: number): void {
+  const requestId = ++calendarRequestId;
+  const { year, month } = shiftMonth(calendarYear, calendarMonth, delta);
+  calendarYear = year;
+  calendarMonth = month;
+  loadAndRenderCalendarMonth(requestId);
+}
+
+function handleCalendarDayClick(e: MouseEvent): void {
+  const target = (e.target as HTMLElement).closest(
+    'button[data-date]',
+  ) as HTMLButtonElement | null;
+  if (!target || target.disabled) return;
+  const date = target.dataset.date!;
+  // Defense in depth — the button should already be disabled for an
+  // out-of-range date, but re-check before acting on it regardless.
+  if (!isDateSelectable(date, todayUtc(), MIN_CALENDAR_DATE)) return;
+  closeCalendarOverlay();
+  startDailyGame(difficulty, date, target);
+}
+
 // ── Event handlers ────────────────────────────────────────────────────────────
 
 function handleCellClick(row: number, col: number): void {
@@ -764,11 +978,12 @@ function init(): void {
 
   btnDaily.addEventListener('click', () => {
     closeDrawer();
-    startDailyGame(difficulty, btnDaily);
+    startDailyGame(difficulty, todayUtc(), btnDaily);
   });
   btnDailyRandom.addEventListener('click', () => {
     closeDrawer();
-    startDailyGame(dailyRandomDifficulty(todayUtc()), btnDailyRandom);
+    const date = todayUtc();
+    startDailyGame(dailyRandomDifficulty(date), date, btnDailyRandom);
   });
 
   // New Game / Play Again always start a fresh random puzzle, matching
@@ -845,6 +1060,15 @@ function init(): void {
     openStatsOverlay();
   });
   btnCloseStats.addEventListener('click', closeStatsOverlay);
+
+  btnCalendar.addEventListener('click', () => {
+    closeDrawer();
+    openCalendarOverlay();
+  });
+  btnCloseCalendar.addEventListener('click', closeCalendarOverlay);
+  btnCalendarPrev.addEventListener('click', () => handleCalendarNav(-1));
+  btnCalendarNext.addEventListener('click', () => handleCalendarNav(1));
+  calendarContent.addEventListener('click', handleCalendarDayClick);
 
   btnMenu.addEventListener('click', openDrawer);
   btnCloseMenu.addEventListener('click', dismissDrawer);
