@@ -98,6 +98,22 @@ describe('generateDailyPuzzle', () => {
   });
 });
 
+describe('dailyPuzzleId', () => {
+  it('matches hashSolution(generateDailyPuzzle(date, difficulty).solution)', async () => {
+    const { dailyPuzzleId, generateDailyPuzzle } = await import('./dailyPuzzle');
+    const { hashSolution } = await import('./puzzleId');
+    const { solution } = generateDailyPuzzle('2026-07-19', 'hard');
+    expect(dailyPuzzleId('2026-07-19', 'hard')).toBe(hashSolution(solution));
+  });
+
+  it('is stable across repeated calls for the same date+difficulty', async () => {
+    const { dailyPuzzleId } = await import('./dailyPuzzle');
+    expect(dailyPuzzleId('2026-07-20', 'normal')).toBe(
+      dailyPuzzleId('2026-07-20', 'normal'),
+    );
+  });
+});
+
 describe('cacheDailyPuzzles', () => {
   it('ensures a puzzle doc for all four difficulties, marked isDaily for the date', async () => {
     mocks.getDoc.mockResolvedValue({ exists: () => false });
