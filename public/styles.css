@@ -74,7 +74,7 @@ body {
 
 #app {
   width: 100%;
-  max-width: 32.5rem;
+  max-width: 36rem;
   display: flex;
   flex-direction: column;
   gap: 0.875rem;
@@ -234,7 +234,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2rem;
+  font-size: 1.5rem;
   color: var(--grey600);
 }
 
