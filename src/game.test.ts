@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyHint,
+  applyLockedNumber,
   eraseCell,
   enterNumber,
   erasePeerNotes,
@@ -9,6 +10,7 @@ import {
   pauseGame,
   resumeGame,
   selectCell,
+  setLockedNumber,
   toggleNote,
   toggleNotesMode,
   togglePause,
@@ -57,6 +59,7 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     selected: null,
     notes: emptyNotes(),
     notesMode: false,
+    lockedNumber: null,
     difficulty: 'easy',
     startTime: 0,
     elapsed: 0,
@@ -242,6 +245,101 @@ describe('enterNumber', () => {
 })
 
 // ---------------------------------------------------------------------------
+// setLockedNumber
+// ---------------------------------------------------------------------------
+
+describe('setLockedNumber', () => {
+  it('locks a number', () => {
+    const s = makeState()
+    expect(setLockedNumber(s, 4).lockedNumber).toBe(4)
+  })
+
+  it('unlocks when the same number is set again', () => {
+    const s = makeState({ lockedNumber: 4 })
+    expect(setLockedNumber(s, 4).lockedNumber).toBeNull()
+  })
+
+  it('switches the lock to a different number', () => {
+    const s = makeState({ lockedNumber: 4 })
+    expect(setLockedNumber(s, 7).lockedNumber).toBe(7)
+  })
+
+  it('does nothing while paused', () => {
+    const s = makeState({ paused: true })
+    expect(setLockedNumber(s, 4)).toBe(s)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// applyLockedNumber
+// ---------------------------------------------------------------------------
+
+describe('applyLockedNumber', () => {
+  it('does nothing when no number is locked', () => {
+    const s = makeState()
+    expect(applyLockedNumber(s, 0, 2)).toBe(s)
+  })
+
+  it('does nothing while paused', () => {
+    const s = makeState({ lockedNumber: 4, paused: true })
+    expect(applyLockedNumber(s, 0, 2)).toBe(s)
+  })
+
+  it('enters the locked number into the clicked cell and selects it', () => {
+    const s = makeState({ lockedNumber: 4 })
+    const next = applyLockedNumber(s, 0, 2)
+    expect(next.userBoard[0][2]).toBe(4)
+    expect(next.selected).toEqual({ row: 0, col: 2 })
+  })
+
+  it('toggles a note instead of a value in notes mode', () => {
+    // Digit 4 (bit index 3) still has one placement missing (0,2) in the
+    // fixture, so toggling a note there — which never fills userBoard —
+    // must not trip the auto-unlock-on-completion path.
+    const s = makeState({ lockedNumber: 4, notesMode: true })
+    const next = applyLockedNumber(s, 0, 2)
+    expect(next.userBoard[0][2]).toBeNull()
+    expect(next.notes[0][2] & (1 << 3)).toBeTruthy()
+    expect(next.lockedNumber).toBe(4) // notes never complete a digit's placement count
+  })
+
+  it('does nothing on a given cell but still selects it', () => {
+    const s = makeState({ lockedNumber: 4 })
+    const next = applyLockedNumber(s, 0, 0) // given cell
+    expect(next.userBoard[0][0]).toBe(s.userBoard[0][0])
+    expect(next.selected).toEqual({ row: 0, col: 0 })
+    expect(next.lockedNumber).toBe(4)
+  })
+
+  it('clears the lock once the digit is fully placed on the board', () => {
+    // The default fixture is missing exactly one 4 (at 0,2); placing it
+    // brings the count to all 9 instances.
+    const s = makeState({ lockedNumber: 4 })
+    expect(applyLockedNumber(s, 0, 2).lockedNumber).toBeNull()
+  })
+
+  it('keeps the lock while the digit still has cells left to place', () => {
+    const userBoard = SOLUTION.map(r => [...r])
+    userBoard[0][2] = null
+    userBoard[2][4] = null // a second 4, so one placement isn't enough yet
+    const given = userBoard.map(row => row.map(v => v !== null))
+    const s = makeState({ userBoard, given, lockedNumber: 4 })
+    expect(applyLockedNumber(s, 0, 2).lockedNumber).toBe(4)
+  })
+
+  it('clears a stale lock when keyboard entry (enterNumber) completes the locked digit', () => {
+    // Regression: keyboard digit entry bypasses applyLockedNumber entirely
+    // (see enterNumber), so the auto-clear-on-completion check must live in
+    // the shared enterNumberAt, not just in applyLockedNumber, or the lock
+    // goes stale and later cell clicks keep misapplying a finished digit.
+    let s = makeState({ lockedNumber: 4, selected: { row: 0, col: 2 } })
+    s = enterNumber(s, 4) // the fixture's only missing 4 — completes it
+    expect(s.userBoard[0][2]).toBe(4)
+    expect(s.lockedNumber).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // eraseCell
 // ---------------------------------------------------------------------------
 
@@ -315,6 +413,15 @@ describe('applyHint', () => {
   it('does nothing while paused', () => {
     const s = makeState({ selected: { row: 0, col: 2 }, paused: true })
     expect(applyHint(s)).toBe(s)
+  })
+
+  it('clears a stale lock when a hint completes the locked digit', () => {
+    // Regression: applyHint writes to userBoard directly, bypassing
+    // applyLockedNumber, so it must also clear the lock on completion.
+    const s = makeState({ selected: { row: 0, col: 2 }, lockedNumber: 4 }) // reveals the fixture's only missing 4
+    const next = applyHint(s)
+    expect(next.userBoard[0][2]).toBe(4)
+    expect(next.lockedNumber).toBeNull()
   })
 })
 

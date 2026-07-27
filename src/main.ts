@@ -7,6 +7,8 @@ import {
   eraseCell,
   undoMove,
   toggleNotesMode,
+  setLockedNumber,
+  applyLockedNumber,
   applyHint,
   togglePause,
   getConflicts,
@@ -202,6 +204,7 @@ function render(): void {
   const conflicts = getConflicts(state);
   const sel = state.selected;
   const selVal = sel ? state.userBoard[sel.row][sel.col] : null;
+  const lockedNumber = state.lockedNumber;
 
   for (let row = 0; row < 9; row++) {
     for (let col = 0; col < 9; col++) {
@@ -292,6 +295,7 @@ function render(): void {
     const n = parseInt((btn as HTMLElement).dataset.num!);
     (btn as HTMLElement).classList.toggle('completed', counts[n] >= 9);
     (btn as HTMLElement).classList.toggle('selected-num', selVal === n);
+    (btn as HTMLElement).classList.toggle('locked', lockedNumber === n);
   });
 
   if (state.solved) handleVictory();
@@ -872,15 +876,27 @@ function handleCalendarDayClick(e: MouseEvent): void {
 
 function handleCellClick(row: number, col: number): void {
   if (!state || state.solved || state.paused) return;
+  if (state.lockedNumber !== null) {
+    const wasStarted = state.started;
+    state = applyLockedNumber(state, row, col);
+    startTimerIfJustStarted(wasStarted);
+    render();
+    return;
+  }
   state = selectCell(state, row, col);
   render();
 }
 
+// Purely locks/unlocks `num` (see setLockedNumber) — never writes to the
+// board itself, even if a cell is already selected. Placement only ever
+// happens from a cell click (handleCellClick). Keeping this side-effect-free
+// is deliberate: an earlier version also entered the number into whatever
+// cell happened to already be selected, which silently overwrote that cell
+// (often the wrong one) the moment a number was locked or swapped — reported
+// as a UX bug on #44's original PR.
 function handleNumInput(num: number): void {
   if (!state || state.solved || state.paused) return;
-  const wasStarted = state.started;
-  state = enterNumber(state, num);
-  startTimerIfJustStarted(wasStarted);
+  state = setLockedNumber(state, num);
   render();
 }
 
@@ -907,8 +923,14 @@ function handleKeydown(e: KeyboardEvent): void {
 
   if (state.paused) return;
 
+  // Deliberately bypasses lockedNumber and calls enterNumber directly rather
+  // than going through handleNumInput — a digit key always enters straight
+  // into the selected cell, unaffected by whatever numpad lock is active.
   if (e.key >= '1' && e.key <= '9') {
-    handleNumInput(parseInt(e.key));
+    const wasStarted = state.started;
+    state = enterNumber(state, parseInt(e.key));
+    startTimerIfJustStarted(wasStarted);
+    render();
     return;
   }
 

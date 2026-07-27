@@ -445,6 +445,7 @@ body {
 .num-btn:hover          { background: var(--btn-hover); color: var(--primary); }
 .num-btn:active         { transform: scale(0.94); }
 .num-btn.selected-num   { background: var(--cell-selected); color: var(--primary); border-color: var(--primary); }
+.num-btn.locked         { background: var(--primary); color: #fff; border-color: var(--primary); }
 .num-btn.completed      { opacity: 0.22; pointer-events: none; }
 
 /* New game button */

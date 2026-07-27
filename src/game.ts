@@ -16,6 +16,11 @@ export interface GameState {
   // notes[r][c] is a bitmask: bit i set means number (i+1) is noted
   notes: number[][];
   notesMode: boolean;
+  // Set via the numpad to let cell clicks place/note this number repeatedly
+  // without reselecting it each time — see setLockedNumber and
+  // applyLockedNumber below (issue #44). Keyboard digit entry (enterNumber)
+  // deliberately bypasses this field entirely.
+  lockedNumber: number | null;
   difficulty: Difficulty;
   startTime: number;
   elapsed: number;
@@ -105,6 +110,7 @@ export function createGame(difficulty: Difficulty, seed?: number): GameState {
     selected: null,
     notes: Array.from({ length: 9 }, () => Array(9).fill(0)),
     notesMode: false,
+    lockedNumber: null,
     difficulty,
     startTime: Date.now(),
     elapsed: 0,
@@ -124,11 +130,14 @@ export function selectCell(state: GameState, row: number, col: number): GameStat
   return { ...state, selected: { row, col } };
 }
 
-export function enterNumber(state: GameState, num: number): GameState {
-  const { selected, given, solution, notesMode } = state;
+export function enterNumberAt(
+  state: GameState,
+  row: number,
+  col: number,
+  num: number,
+): GameState {
+  const { given, solution, notesMode } = state;
   if (state.paused) return state;
-  if (!selected) return state;
-  const { row, col } = selected;
   if (given[row][col]) return state;
 
   const snapshot = takeSnapshot(state);
@@ -153,7 +162,7 @@ export function enterNumber(state: GameState, num: number): GameState {
   const mistakes = num !== solution[row][col] ? state.mistakes + 1 : state.mistakes;
   const solved = checkSolved(userBoard, solution);
 
-  return {
+  const next = {
     ...state,
     userBoard,
     notes,
@@ -162,6 +171,45 @@ export function enterNumber(state: GameState, num: number): GameState {
     started: true,
     history: [...state.history, snapshot],
   };
+  return clearLockIfCompleted(next, num);
+}
+
+export function enterNumber(state: GameState, num: number): GameState {
+  if (!state.selected) return state;
+  return enterNumberAt(state, state.selected.row, state.selected.col, num);
+}
+
+// Toggles `num` as the locked number: clicking the same number again unlocks
+// it. Locking a different number replaces the previous lock outright.
+export function setLockedNumber(state: GameState, num: number): GameState {
+  if (state.paused) return state;
+  return { ...state, lockedNumber: state.lockedNumber === num ? null : num };
+}
+
+function countPlaced(board: Board, num: number): number {
+  let count = 0;
+  for (const row of board) for (const v of row) if (v === num) count++;
+  return count;
+}
+
+// Clears lockedNumber once the digit it points at has all 9 instances placed
+// on the board — called after every mutation that can complete a digit
+// (enterNumberAt, so both keyboard entry and locked-cell clicks are covered;
+// applyHint too), so the lock never goes stale and silently keeps applying
+// an already-finished digit to whatever cell is clicked next.
+function clearLockIfCompleted(state: GameState, num: number): GameState {
+  if (state.lockedNumber !== num) return state;
+  return countPlaced(state.userBoard, num) >= 9 ? { ...state, lockedNumber: null } : state;
+}
+
+// Applies the currently locked number to (row, col) — entering it as a value
+// or toggling it as a note, matching notesMode — and selects that cell so
+// peer highlighting tracks the click. No-ops if nothing is locked.
+export function applyLockedNumber(state: GameState, row: number, col: number): GameState {
+  if (state.paused) return state;
+  if (state.lockedNumber === null) return state;
+  const next = enterNumberAt(state, row, col, state.lockedNumber);
+  return { ...next, selected: { row, col } };
 }
 
 export function eraseCell(state: GameState): GameState {
@@ -233,12 +281,13 @@ export function applyHint(state: GameState): GameState {
   const notes = cloneNotes(state.notes);
   const newGiven = state.given.map(r => [...r]);
 
-  userBoard[row][col] = solution[row][col];
+  const revealed = solution[row][col]!;
+  userBoard[row][col] = revealed;
   notes[row][col] = 0;
   newGiven[row][col] = true;
 
   const solved = checkSolved(userBoard, solution);
-  return {
+  const next = {
     ...state,
     userBoard,
     notes,
@@ -247,6 +296,7 @@ export function applyHint(state: GameState): GameState {
     started: true,
     history: [...state.history, snapshot],
   };
+  return clearLockIfCompleted(next, revealed);
 }
 
 export function getConflicts(state: GameState): Set<string> {
