@@ -416,9 +416,10 @@ body {
 }
 
 .action-btn.active {
-  background: var(--btn-hover);
-  color: var(--primary);
+  background: var(--primary);
+  color: #fff;
   border-color: var(--primary);
+  font-weight: 600;
 }
 
 /* Numpad */
