@@ -326,6 +326,17 @@ describe('applyLockedNumber', () => {
     const s = makeState({ userBoard, given, lockedNumber: 4 })
     expect(applyLockedNumber(s, 0, 2).lockedNumber).toBe(4)
   })
+
+  it('clears a stale lock when keyboard entry (enterNumber) completes the locked digit', () => {
+    // Regression: keyboard digit entry bypasses applyLockedNumber entirely
+    // (see enterNumber), so the auto-clear-on-completion check must live in
+    // the shared enterNumberAt, not just in applyLockedNumber, or the lock
+    // goes stale and later cell clicks keep misapplying a finished digit.
+    let s = makeState({ lockedNumber: 4, selected: { row: 0, col: 2 } })
+    s = enterNumber(s, 4) // the fixture's only missing 4 — completes it
+    expect(s.userBoard[0][2]).toBe(4)
+    expect(s.lockedNumber).toBeNull()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -402,6 +413,15 @@ describe('applyHint', () => {
   it('does nothing while paused', () => {
     const s = makeState({ selected: { row: 0, col: 2 }, paused: true })
     expect(applyHint(s)).toBe(s)
+  })
+
+  it('clears a stale lock when a hint completes the locked digit', () => {
+    // Regression: applyHint writes to userBoard directly, bypassing
+    // applyLockedNumber, so it must also clear the lock on completion.
+    const s = makeState({ selected: { row: 0, col: 2 }, lockedNumber: 4 }) // reveals the fixture's only missing 4
+    const next = applyHint(s)
+    expect(next.userBoard[0][2]).toBe(4)
+    expect(next.lockedNumber).toBeNull()
   })
 })
 
