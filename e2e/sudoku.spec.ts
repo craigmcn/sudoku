@@ -89,7 +89,10 @@ test('notes mode pencils in a digit without filling the cell', async ({ page }) 
   await page.locator('#btnNotes').click()
   await expect(page.locator('#btnNotes')).toHaveClass(/active/)
 
+  // Locking a numpad digit no longer writes to the board by itself (#44
+  // follow-up) — the cell click is what actually applies the locked digit.
   await page.locator('.num-btn[data-num="5"]').click()
+  await emptyCell.click()
 
   await expect(emptyCell).toHaveClass(/has-notes/)
   await expect(emptyCell.locator('.cell-value')).toHaveText('')
@@ -104,6 +107,7 @@ test('undo restores the previous cell state', async ({ page }) => {
   await emptyCell.click()
   await page.locator('#btnNotes').click()
   await page.locator('.num-btn[data-num="3"]').click()
+  await emptyCell.click()
   await expect(emptyCell).toHaveClass(/has-notes/)
 
   await page.locator('#btnUndo').click()
