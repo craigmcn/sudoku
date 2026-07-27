@@ -16,6 +16,10 @@ export interface GameState {
   // notes[r][c] is a bitmask: bit i set means number (i+1) is noted
   notes: number[][];
   notesMode: boolean;
+  // Set via the numpad (or a digit key) to let cell clicks place/note this
+  // number repeatedly without reselecting it each time — see setLockedNumber
+  // and applyLockedNumber below (issue #44).
+  lockedNumber: number | null;
   difficulty: Difficulty;
   startTime: number;
   elapsed: number;
@@ -105,6 +109,7 @@ export function createGame(difficulty: Difficulty, seed?: number): GameState {
     selected: null,
     notes: Array.from({ length: 9 }, () => Array(9).fill(0)),
     notesMode: false,
+    lockedNumber: null,
     difficulty,
     startTime: Date.now(),
     elapsed: 0,
@@ -124,11 +129,14 @@ export function selectCell(state: GameState, row: number, col: number): GameStat
   return { ...state, selected: { row, col } };
 }
 
-export function enterNumber(state: GameState, num: number): GameState {
-  const { selected, given, solution, notesMode } = state;
+export function enterNumberAt(
+  state: GameState,
+  row: number,
+  col: number,
+  num: number,
+): GameState {
+  const { given, solution, notesMode } = state;
   if (state.paused) return state;
-  if (!selected) return state;
-  const { row, col } = selected;
   if (given[row][col]) return state;
 
   const snapshot = takeSnapshot(state);
@@ -162,6 +170,38 @@ export function enterNumber(state: GameState, num: number): GameState {
     started: true,
     history: [...state.history, snapshot],
   };
+}
+
+export function enterNumber(state: GameState, num: number): GameState {
+  if (!state.selected) return state;
+  return enterNumberAt(state, state.selected.row, state.selected.col, num);
+}
+
+// Toggles `num` as the locked number: clicking the same number again unlocks
+// it. Locking a different number replaces the previous lock outright.
+export function setLockedNumber(state: GameState, num: number): GameState {
+  if (state.paused) return state;
+  return { ...state, lockedNumber: state.lockedNumber === num ? null : num };
+}
+
+function countPlaced(board: Board, num: number): number {
+  let count = 0;
+  for (const row of board) for (const v of row) if (v === num) count++;
+  return count;
+}
+
+// Applies the currently locked number to (row, col) — entering it as a value
+// or toggling it as a note, matching notesMode — and selects that cell so
+// peer highlighting tracks the click. No-ops if nothing is locked. Once the
+// locked digit reaches all 9 placements on the board, the lock clears itself
+// since there's nowhere left for the player to place it.
+export function applyLockedNumber(state: GameState, row: number, col: number): GameState {
+  if (state.paused) return state;
+  if (state.lockedNumber === null) return state;
+  const num = state.lockedNumber;
+  const next = enterNumberAt(state, row, col, num);
+  const stillNeeded = countPlaced(next.userBoard, num) < 9;
+  return { ...next, selected: { row, col }, lockedNumber: stillNeeded ? num : null };
 }
 
 export function eraseCell(state: GameState): GameState {

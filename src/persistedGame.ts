@@ -3,7 +3,7 @@ import { GameState } from './game';
 const STORAGE_KEY = 'sudoku-saved-game';
 // Bump when GameState's shape changes so an old save from a prior schema
 // can't be rehydrated into code that no longer expects it.
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 // A save older than this is more likely to confuse a returning player than
 // help them, so it's discarded rather than resumed.
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;

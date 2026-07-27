@@ -7,6 +7,8 @@ import {
   eraseCell,
   undoMove,
   toggleNotesMode,
+  setLockedNumber,
+  applyLockedNumber,
   applyHint,
   togglePause,
   getConflicts,
@@ -202,6 +204,7 @@ function render(): void {
   const conflicts = getConflicts(state);
   const sel = state.selected;
   const selVal = sel ? state.userBoard[sel.row][sel.col] : null;
+  const lockedNumber = state.lockedNumber;
 
   for (let row = 0; row < 9; row++) {
     for (let col = 0; col < 9; col++) {
@@ -292,6 +295,7 @@ function render(): void {
     const n = parseInt((btn as HTMLElement).dataset.num!);
     (btn as HTMLElement).classList.toggle('completed', counts[n] >= 9);
     (btn as HTMLElement).classList.toggle('selected-num', selVal === n);
+    (btn as HTMLElement).classList.toggle('locked', lockedNumber === n);
   });
 
   if (state.solved) handleVictory();
@@ -872,14 +876,28 @@ function handleCalendarDayClick(e: MouseEvent): void {
 
 function handleCellClick(row: number, col: number): void {
   if (!state || state.solved || state.paused) return;
+  if (state.lockedNumber !== null) {
+    const wasStarted = state.started;
+    state = applyLockedNumber(state, row, col);
+    startTimerIfJustStarted(wasStarted);
+    render();
+    return;
+  }
   state = selectCell(state, row, col);
   render();
 }
 
+// Locks `num` (see setLockedNumber) so subsequent cell clicks place/note it
+// without reselecting it each time; a second click on the same number
+// unlocks it. If a cell is already selected, still enters it immediately —
+// preserves the pre-#44 "select cell, then click a number" flow.
 function handleNumInput(num: number): void {
   if (!state || state.solved || state.paused) return;
   const wasStarted = state.started;
-  state = enterNumber(state, num);
+  state = setLockedNumber(state, num);
+  if (state.lockedNumber === num && state.selected) {
+    state = enterNumber(state, num);
+  }
   startTimerIfJustStarted(wasStarted);
   render();
 }
