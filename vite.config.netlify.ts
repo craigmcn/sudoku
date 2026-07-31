@@ -14,7 +14,7 @@ export default defineConfig({
     rollupOptions: {
       output: [
         { dir: 'netlify' },
-        { dir: 'netlify/sudoku' }, // For Netlify subdirectory
+        { dir: 'netlify/sudoku' }, // For GitHub Pages (/sudoku/)
       ],
     },
   },
