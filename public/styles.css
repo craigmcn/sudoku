@@ -659,7 +659,6 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
 }
 
 .stats-recent-item {
@@ -668,9 +667,10 @@ body {
   gap: 0.5rem;
   font-size: 0.75rem;
   color: var(--grey700);
-  padding: 0.25rem 0.5rem;
+  padding: 0.125rem 0.5rem;
   background: var(--btn-bg);
   border-radius: var(--radius);
+  margin-block-end: 0;
 }
 
 /* Calendar modal */
