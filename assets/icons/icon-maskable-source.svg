@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#005b99" />
+  <g stroke="#ffffff" stroke-linecap="round" transform="translate(48 48) scale(0.8125)">
+    <!-- outer border -->
+    <rect x="96" y="96" width="320" height="320" rx="8" fill="none" stroke-width="16" />
+    <!-- thin grid lines -->
+    <g stroke-width="4" opacity="0.85">
+      <line x1="202.7" y1="96" x2="202.7" y2="416" />
+      <line x1="309.3" y1="96" x2="309.3" y2="416" />
+      <line x1="96" y1="202.7" x2="416" y2="202.7" />
+      <line x1="96" y1="309.3" x2="416" y2="309.3" />
+    </g>
+    <!-- thick 3x3 box dividers -->
+    <g stroke-width="10">
+      <line x1="256" y1="96" x2="256" y2="416" />
+      <line x1="96" y1="256" x2="416" y2="256" />
+    </g>
+  </g>
+</svg>
