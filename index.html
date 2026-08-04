@@ -159,6 +159,9 @@
     <!-- Sign-in overlay -->
     <div id="signInOverlay" class="overlay hidden">
       <div class="modal">
+        <button id="btnCloseSignIn" class="pause-btn modal-close-btn" aria-label="Close sign in">
+          <i class="fa-sharp fa-light fa-xmark"></i>
+        </button>
         <div class="modal-icon modal-icon-neutral"><i class="fa-sharp fa-light fa-user"></i></div>
         <h2>Sign in</h2>
         <p class="sign-in-copy">Save your stats to an account so they follow you across devices.</p>
@@ -179,7 +182,6 @@
           <button id="btnEmailLinkSignIn" class="new-game-btn">Email me a sign-in link</button>
         </div>
         <p id="signInStatus" class="sign-in-status" role="status"></p>
-        <button id="btnCloseSignIn" class="action-btn">Cancel</button>
       </div>
     </div>
 
@@ -198,6 +200,9 @@
     <!-- Calendar overlay -->
     <div id="calendarOverlay" class="overlay hidden">
       <div class="modal modal-calendar">
+        <button id="btnCloseCalendar" class="pause-btn modal-close-btn" aria-label="Close calendar">
+          <i class="fa-sharp fa-light fa-xmark"></i>
+        </button>
         <div class="modal-icon modal-icon-neutral"><i class="fa-sharp fa-light fa-calendar"></i></div>
         <h2>Daily Puzzle Calendar</h2>
         <div class="calendar-nav">
@@ -210,7 +215,6 @@
           </button>
         </div>
         <div id="calendarContent" class="calendar-content"></div>
-        <button id="btnCloseCalendar" class="action-btn">Close</button>
       </div>
     </div>
   </div>
