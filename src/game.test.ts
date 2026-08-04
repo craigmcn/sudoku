@@ -368,8 +368,25 @@ describe('resetBoard', () => {
     return { ...withEntry, notes: toggleNote(withEntry.notes, 0, 3, 1) }
   }
 
+  // Fills all three non-given cells with their correct solution values, so
+  // the resulting state is fully solved.
+  function solvedState(): GameState {
+    let s = makeState({ selected: { row: 0, col: 2 } })
+    s = enterNumber(s, 4)
+    s = { ...s, selected: { row: 0, col: 3 } }
+    s = enterNumber(s, 6)
+    s = { ...s, selected: { row: 1, col: 1 } }
+    s = enterNumber(s, 7)
+    return s
+  }
+
   it('does nothing while paused', () => {
     const s = { ...stateWithEntryAndNote(), paused: true }
+    expect(resetBoard(s, 'all')).toBe(s)
+  })
+
+  it('does nothing when the chosen scope has nothing to clear', () => {
+    const s = makeState()
     expect(resetBoard(s, 'all')).toBe(s)
   })
 
@@ -395,10 +412,25 @@ describe('resetBoard', () => {
     expect(reset.notes[0][3]).toBe(0)
   })
 
-  it('does not reset mistakes or solved', () => {
+  it('preserves mistakes', () => {
     const s = { ...stateWithEntryAndNote(), mistakes: 2 }
     const reset = resetBoard(s, 'all')
     expect(reset.mistakes).toBe(2)
+  })
+
+  it("'notes' on an already-solved board leaves solved true", () => {
+    const solved = solvedState()
+    expect(solved.solved).toBe(true)
+    const withNote = { ...solved, notes: toggleNote(solved.notes, 0, 2, 5) }
+    const reset = resetBoard(withNote, 'notes')
+    expect(reset.solved).toBe(true)
+    expect(reset.notes[0][2]).toBe(0)
+  })
+
+  it("'entries' on an already-solved board recomputes solved to false", () => {
+    const solved = solvedState()
+    expect(solved.solved).toBe(true)
+    const reset = resetBoard(solved, 'entries')
     expect(reset.solved).toBe(false)
   })
 
