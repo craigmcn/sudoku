@@ -8,6 +8,7 @@ import {
   getConflicts,
   getPeerCoords,
   pauseGame,
+  resetBoard,
   resumeGame,
   selectCell,
   setLockedNumber,
@@ -353,6 +354,92 @@ describe('eraseCell', () => {
     const s = makeState({ selected: { row: 0, col: 2 } })
     const filled = enterNumber(s, 9)
     expect(eraseCell({ ...filled, selected: { row: 0, col: 2 } }).userBoard[0][2]).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// resetBoard
+// ---------------------------------------------------------------------------
+
+describe('resetBoard', () => {
+  function stateWithEntryAndNote(): GameState {
+    const s = makeState({ selected: { row: 0, col: 2 } })
+    const withEntry = enterNumber(s, 4) // correct value at (0,2)
+    return { ...withEntry, notes: toggleNote(withEntry.notes, 0, 3, 1) }
+  }
+
+  // Fills all three non-given cells with their correct solution values, so
+  // the resulting state is fully solved.
+  function solvedState(): GameState {
+    let s = makeState({ selected: { row: 0, col: 2 } })
+    s = enterNumber(s, 4)
+    s = { ...s, selected: { row: 0, col: 3 } }
+    s = enterNumber(s, 6)
+    s = { ...s, selected: { row: 1, col: 1 } }
+    s = enterNumber(s, 7)
+    return s
+  }
+
+  it('does nothing while paused', () => {
+    const s = { ...stateWithEntryAndNote(), paused: true }
+    expect(resetBoard(s, 'all')).toBe(s)
+  })
+
+  it('does nothing when the chosen scope has nothing to clear', () => {
+    const s = makeState()
+    expect(resetBoard(s, 'all')).toBe(s)
+  })
+
+  it("'all' clears both entries and notes on non-given cells, leaving given cells alone", () => {
+    const s = stateWithEntryAndNote()
+    const reset = resetBoard(s, 'all')
+    expect(reset.userBoard[0][2]).toBeNull()
+    expect(reset.notes[0][3]).toBe(0)
+    expect(reset.userBoard[0][0]).toBe(SOLUTION[0][0]) // given cell untouched
+  })
+
+  it("'entries' clears values but leaves notes intact", () => {
+    const s = stateWithEntryAndNote()
+    const reset = resetBoard(s, 'entries')
+    expect(reset.userBoard[0][2]).toBeNull()
+    expect(reset.notes[0][3]).not.toBe(0)
+  })
+
+  it("'notes' clears notes but leaves values intact", () => {
+    const s = stateWithEntryAndNote()
+    const reset = resetBoard(s, 'notes')
+    expect(reset.userBoard[0][2]).toBe(4)
+    expect(reset.notes[0][3]).toBe(0)
+  })
+
+  it('preserves mistakes', () => {
+    const s = { ...stateWithEntryAndNote(), mistakes: 2 }
+    const reset = resetBoard(s, 'all')
+    expect(reset.mistakes).toBe(2)
+  })
+
+  it("'notes' on an already-solved board leaves solved true", () => {
+    const solved = solvedState()
+    expect(solved.solved).toBe(true)
+    const withNote = { ...solved, notes: toggleNote(solved.notes, 0, 2, 5) }
+    const reset = resetBoard(withNote, 'notes')
+    expect(reset.solved).toBe(true)
+    expect(reset.notes[0][2]).toBe(0)
+  })
+
+  it("'entries' on an already-solved board recomputes solved to false", () => {
+    const solved = solvedState()
+    expect(solved.solved).toBe(true)
+    const reset = resetBoard(solved, 'entries')
+    expect(reset.solved).toBe(false)
+  })
+
+  it('is undoable', () => {
+    const s = stateWithEntryAndNote()
+    const reset = resetBoard(s, 'all')
+    const undone = undoMove(reset)
+    expect(undone.userBoard[0][2]).toBe(4)
+    expect(undone.notes[0][3]).not.toBe(0)
   })
 })
 

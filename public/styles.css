@@ -609,6 +609,16 @@ body {
   right: 0.625rem;
 }
 
+/* Reset modal */
+.modal-reset {
+  position: relative;
+}
+
+.reset-copy {
+  font-size: 0.875rem;
+  color: var(--grey600);
+}
+
 .stats-content {
   width: 100%;
   display: flex;

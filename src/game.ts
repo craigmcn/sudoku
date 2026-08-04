@@ -212,6 +212,50 @@ export function applyLockedNumber(state: GameState, row: number, col: number): G
   return { ...next, selected: { row, col } };
 }
 
+export type ResetScope = 'all' | 'entries' | 'notes';
+
+// Clears user progress on all non-given cells, scoped to entered values,
+// pencil notes, or both. Given cells, mistakes, and elapsed time are never
+// touched — resetting the board isn't a new puzzle, so those don't reset.
+export function resetBoard(state: GameState, scope: ResetScope): GameState {
+  if (state.paused) return state;
+
+  const userBoard = cloneBoard(state.userBoard);
+  const notes = cloneNotes(state.notes);
+  let changed = false;
+
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      if (state.given[r][c]) continue;
+      if (scope === 'all' || scope === 'entries') {
+        if (userBoard[r][c] !== null) changed = true;
+        userBoard[r][c] = null;
+      }
+      if (scope === 'all' || scope === 'notes') {
+        if (notes[r][c] !== 0) changed = true;
+        notes[r][c] = 0;
+      }
+    }
+  }
+
+  // Nothing to clear for this scope — return the original state as-is
+  // rather than pushing a no-op undo entry, matching eraseCell's pattern.
+  if (!changed) return state;
+
+  const snapshot = takeSnapshot(state);
+
+  return {
+    ...state,
+    userBoard,
+    notes,
+    // Derived from the resulting board rather than hardcoded, so a
+    // notes-only reset on an already-solved board (entries untouched)
+    // correctly leaves `solved` true.
+    solved: checkSolved(userBoard, state.solution),
+    history: [...state.history, snapshot],
+  };
+}
+
 export function eraseCell(state: GameState): GameState {
   const { selected, given } = state;
   if (state.paused) return state;
