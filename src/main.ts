@@ -710,6 +710,7 @@ async function computeCompletedDates(
   month: number,
   plays: UserPlay[],
   requestId: number,
+  onProgress: (scanned: number, total: number) => void,
 ): Promise<Set<string> | null> {
   const playedIds = new Set(plays.map((p) => p.puzzleId));
   const candidateDifficulties = CALENDAR_DIFFICULTY_CHECK_ORDER.filter((d) =>
@@ -725,13 +726,15 @@ async function computeCompletedDates(
     MIN_CALENDAR_DATE,
   );
 
-  for (const date of dates) {
+  for (let i = 0; i < dates.length; i++) {
+    const date = dates[i];
     for (const diff of candidateDifficulties) {
       if (playedIds.has(dailyPuzzleId(date, diff))) {
         completed.add(date);
         break;
       }
     }
+    onProgress(i + 1, dates.length);
     // Yield after every date rather than batching several — a close/nav
     // should bail within one date's worth of (possibly ~130ms 'expert')
     // generation, not up to a batch's worth of it (flagged by Copilot on
@@ -804,11 +807,20 @@ async function loadAndRenderCalendarMonth(requestId: number): Promise<void> {
   );
   renderCalendarMessage('Loading…');
 
+  // Scanning a month of completion data can take a few seconds in the
+  // worst case (see #55) — without visible progress that reads as a
+  // frozen UI rather than a slow one, so the message counts up as dates
+  // are scanned instead of sitting static the whole time.
   const completedDates = await computeCompletedDates(
     calendarYear,
     calendarMonth,
     calendarPlays,
     requestId,
+    (scanned, total) => {
+      if (requestId === calendarRequestId) {
+        renderCalendarMessage(`Loading… (${scanned}/${total})`);
+      }
+    },
   );
   if (completedDates === null || requestId !== calendarRequestId) return;
 
