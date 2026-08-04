@@ -121,6 +121,10 @@
             <i class="fa-sharp fa-light fa-lightbulb"></i>
             <span>Hint</span>
           </button>
+          <button id="btnReset" class="action-btn">
+            <i class="fa-sharp fa-light fa-arrows-rotate"></i>
+            <span>Reset</span>
+          </button>
         </div>
 
         <div id="numpad" class="numpad"></div>
@@ -192,6 +196,21 @@
         <div class="modal-icon modal-icon-neutral"><i class="fa-sharp fa-light fa-chart-simple"></i></div>
         <h2>Your Stats</h2>
         <div id="statsContent" class="stats-content"></div>
+      </div>
+    </div>
+
+    <!-- Reset overlay -->
+    <div id="resetOverlay" class="overlay hidden">
+      <div class="modal modal-reset">
+        <button id="btnCloseReset" class="pause-btn modal-close-btn" aria-label="Close reset">
+          <i class="fa-sharp fa-light fa-xmark"></i>
+        </button>
+        <div class="modal-icon modal-icon-neutral"><i class="fa-sharp fa-light fa-arrows-rotate"></i></div>
+        <h2>Reset</h2>
+        <p class="reset-copy">Choose what to clear. Given clues are never affected.</p>
+        <button id="btnResetAll" class="new-game-btn">Clear everything</button>
+        <button id="btnResetEntries" class="new-game-btn">Clear entries only</button>
+        <button id="btnResetNotes" class="new-game-btn">Clear notes only</button>
       </div>
     </div>
 
