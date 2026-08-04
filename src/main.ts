@@ -10,8 +10,10 @@ import {
   setLockedNumber,
   applyLockedNumber,
   applyHint,
+  resetBoard,
   togglePause,
   getConflicts,
+  type ResetScope,
 } from './game';
 import {
   fetchUserPlays,
@@ -68,6 +70,12 @@ const btnUndo = document.getElementById('btnUndo')!;
 const btnErase = document.getElementById('btnErase')!;
 const btnNotes = document.getElementById('btnNotes')!;
 const btnHint = document.getElementById('btnHint')!;
+const btnReset = document.getElementById('btnReset')!;
+const resetOverlay = document.getElementById('resetOverlay')!;
+const btnCloseReset = document.getElementById('btnCloseReset')!;
+const btnResetAll = document.getElementById('btnResetAll')!;
+const btnResetEntries = document.getElementById('btnResetEntries')!;
+const btnResetNotes = document.getElementById('btnResetNotes')!;
 const btnPause = document.getElementById('btnPause')! as HTMLButtonElement;
 const btnResume = document.getElementById('btnResume')!;
 const btnNewGame = document.getElementById('btnNewGame')!;
@@ -535,6 +543,21 @@ function openSignInOverlay(): void {
 
 function closeSignInOverlay(): void {
   signInOverlay.classList.add('hidden');
+}
+
+function openResetOverlay(): void {
+  resetOverlay.classList.remove('hidden');
+}
+
+function closeResetOverlay(): void {
+  resetOverlay.classList.add('hidden');
+}
+
+function handleReset(scope: ResetScope): void {
+  if (!state || state.paused) return;
+  state = resetBoard(state, scope);
+  closeResetOverlay();
+  render();
 }
 
 async function handleGoogleSignIn(): Promise<void> {
@@ -1060,6 +1083,15 @@ function init(): void {
     startTimerIfJustStarted(wasStarted);
     render();
   });
+
+  btnReset.addEventListener('click', () => {
+    if (!state || state.paused) return;
+    openResetOverlay();
+  });
+  btnCloseReset.addEventListener('click', closeResetOverlay);
+  btnResetAll.addEventListener('click', () => handleReset('all'));
+  btnResetEntries.addEventListener('click', () => handleReset('entries'));
+  btnResetNotes.addEventListener('click', () => handleReset('notes'));
 
   btnPause.addEventListener('click', () => handlePauseToggle());
   btnResume.addEventListener('click', () => handlePauseToggle());
