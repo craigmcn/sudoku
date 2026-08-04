@@ -144,13 +144,20 @@ describe('dailyPuzzleId', () => {
 
   it('persists computed ids to localStorage so a later session can skip generation', async () => {
     const { dailyPuzzleId } = await import('./dailyPuzzle');
-    const id = dailyPuzzleId('2026-07-21', 'expert');
+    // 'easy' rather than 'expert' — this test only cares about the
+    // localStorage write path, not generation itself, and 'expert''s
+    // uniqueness-check backtracking has a seed-dependent worst case slow
+    // enough on CI hardware to trip vitest's default 5s per-test timeout
+    // (observed in CI on PR #58 for this exact date+'expert' pairing, while
+    // other tests here generating 'expert' for different dates stayed
+    // under it — see generator.ts's removal-loop countSolutions calls).
+    const id = dailyPuzzleId('2026-07-21', 'easy');
     // Persisting is debounced to a microtask (scheduleFlush) — flush it.
     await Promise.resolve();
     const raw = localStorage.getItem('sudoku-daily-puzzle-id-cache-v1');
     expect(raw).not.toBeNull();
     const cache = JSON.parse(raw!) as Record<string, string>;
-    expect(cache['2026-07-21:expert']).toBe(id);
+    expect(cache['2026-07-21:easy']).toBe(id);
   });
 });
 
