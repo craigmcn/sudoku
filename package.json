@@ -1,6 +1,6 @@
 {
   "name": "sudoku",
-  "version": "2.0.0",
+  "version": "2.8.1",
   "description": "A browser-based Sudoku game",
   "private": true,
   "type": "module",
