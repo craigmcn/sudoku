@@ -28,11 +28,40 @@ vi.mock('./puzzleDoc', () => ({
   requireDb: mocks.requireDb,
 }));
 
+// happy-dom's Window doesn't implement localStorage out of the box (see
+// auth.test.ts) — stub it with a small in-memory Storage.
+class MemoryStorage implements Storage {
+  private store = new Map<string, string>();
+  get length(): number {
+    return this.store.size;
+  }
+  clear(): void {
+    this.store.clear();
+  }
+  getItem(key: string): string | null {
+    return this.store.has(key) ? this.store.get(key)! : null;
+  }
+  key(index: number): string | null {
+    return Array.from(this.store.keys())[index] ?? null;
+  }
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+  setItem(key: string, value: string): void {
+    this.store.set(key, String(value));
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.ensureAnonymousAuth.mockResolvedValue({ uid: 'test-uid' });
   mocks.ensurePuzzleDoc.mockResolvedValue(undefined);
   mocks.requireDb.mockReturnValue({ __db: true });
+  Object.defineProperty(window, 'localStorage', {
+    value: new MemoryStorage(),
+    writable: true,
+    configurable: true,
+  });
 });
 
 describe('seedFromString', () => {
@@ -111,6 +140,41 @@ describe('dailyPuzzleId', () => {
     expect(dailyPuzzleId('2026-07-20', 'normal')).toBe(
       dailyPuzzleId('2026-07-20', 'normal'),
     );
+  });
+
+  it('persists computed ids to localStorage so a later session can skip generation', async () => {
+    const { dailyPuzzleId } = await import('./dailyPuzzle');
+    // 'easy' rather than 'expert' — this test only cares about the
+    // localStorage write path, not generation itself, and 'expert''s
+    // uniqueness-check backtracking has a seed-dependent worst case slow
+    // enough on CI hardware to trip vitest's default 5s per-test timeout
+    // (observed in CI on PR #58 for this exact date+'expert' pairing, while
+    // other tests here generating 'expert' for different dates stayed
+    // under it — see generator.ts's removal-loop countSolutions calls).
+    const id = dailyPuzzleId('2026-07-21', 'easy');
+    // Persisting is debounced to a microtask (scheduleFlush) — flush it.
+    await Promise.resolve();
+    const raw = localStorage.getItem('sudoku-daily-puzzle-id-cache-v1');
+    expect(raw).not.toBeNull();
+    const cache = JSON.parse(raw!) as Record<string, string>;
+    expect(cache['2026-07-21:easy']).toBe(id);
+  });
+
+  it('falls back to an empty cache rather than throwing when localStorage holds corrupted JSON', async () => {
+    // The literal string 'null' is valid JSON — JSON.parse succeeds without
+    // throwing and returns `null`, which would previously crash the very
+    // next `persisted[key]` access if trusted as-is.
+    localStorage.setItem('sudoku-daily-puzzle-id-cache-v1', 'null');
+    // Force a fresh module instance so loadPersistedCache re-reads
+    // localStorage instead of returning an already-populated in-memory cache
+    // from an earlier test in this file.
+    vi.resetModules();
+    const { dailyPuzzleId, generateDailyPuzzle } = await import('./dailyPuzzle');
+    const { hashSolution } = await import('./puzzleId');
+
+    expect(() => dailyPuzzleId('2026-07-22', 'easy')).not.toThrow();
+    const { solution } = generateDailyPuzzle('2026-07-22', 'easy');
+    expect(dailyPuzzleId('2026-07-22', 'easy')).toBe(hashSolution(solution));
   });
 });
 

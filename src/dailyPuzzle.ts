@@ -60,17 +60,74 @@ export function generateDailyPuzzle(
 
 // Memoized per (date, difficulty) — the calendar view (#41) recomputes this
 // repeatedly while scanning a visible month, and generation (especially
-// expert, ~130ms) is too expensive to redo on every re-navigation.
+// expert, ~130ms) is too expensive to redo on every re-navigation. The
+// in-memory Map covers repeat scans within a session; a localStorage-backed
+// second tier (below) covers repeat scans across sessions/reloads, since
+// (date, difficulty) -> puzzleId is a pure function of code that doesn't
+// change often (#55: a full month's worst-case scan was slow enough to read
+// as a freeze on every single calendar open).
 const dailyPuzzleIdCache = new Map<string, string>();
+
+// Bump the trailing version if the generation algorithm or hashSolution
+// ever changes (as it did in #20) — a stale cache under the old key would
+// otherwise silently serve puzzleIds that no longer match live generation.
+const PERSISTED_CACHE_KEY = 'sudoku-daily-puzzle-id-cache-v1';
+
+let persistedCache: Record<string, string> | null = null;
+let flushScheduled = false;
+
+function loadPersistedCache(): Record<string, string> {
+  if (persistedCache) return persistedCache;
+  try {
+    const raw = localStorage.getItem(PERSISTED_CACHE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
+    // JSON.parse succeeds without throwing on non-object values like the
+    // literal string 'null' or a bare array — trusting those as
+    // Record<string, string> would crash the very next `persisted[key]`
+    // access, so fall back to {} for anything that isn't a plain object.
+    persistedCache =
+      parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, string>)
+        : {};
+  } catch (err) {
+    console.warn('Failed to read daily puzzle id cache:', err);
+    persistedCache = {};
+  }
+  return persistedCache;
+}
+
+// Debounced to one write per microtask tick rather than one per cache miss —
+// a month scan can miss the cache for many (date, difficulty) pairs in a
+// tight loop before yielding, and each is a synchronous localStorage write.
+function scheduleFlush(): void {
+  if (flushScheduled) return;
+  flushScheduled = true;
+  queueMicrotask(() => {
+    flushScheduled = false;
+    try {
+      localStorage.setItem(PERSISTED_CACHE_KEY, JSON.stringify(persistedCache));
+    } catch (err) {
+      console.warn('Failed to persist daily puzzle id cache:', err);
+    }
+  });
+}
 
 export function dailyPuzzleId(date: string, difficulty: Difficulty): string {
   const key = `${date}:${difficulty}`;
   const cached = dailyPuzzleIdCache.get(key);
   if (cached !== undefined) return cached;
 
+  const persisted = loadPersistedCache();
+  if (persisted[key] !== undefined) {
+    dailyPuzzleIdCache.set(key, persisted[key]);
+    return persisted[key];
+  }
+
   const { solution } = generateDailyPuzzle(date, difficulty);
   const id = hashSolution(solution);
   dailyPuzzleIdCache.set(key, id);
+  persisted[key] = id;
+  scheduleFlush();
   return id;
 }
 
