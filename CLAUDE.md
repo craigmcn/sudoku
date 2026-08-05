@@ -5,6 +5,13 @@ A browser-based Sudoku game built with TypeScript and Vite, deployed to Netlify.
 > Full narrative history of past features/fixes (dated "Progress"/"Key decisions" write-ups) lives in
 > [docs/HISTORY.md](docs/HISTORY.md), not here — that file isn't auto-loaded, so consult it only when
 > you need the "why" behind something not covered below. Git log/PRs are the authoritative record either way.
+>
+> **When checkpointing a completed feature/fix**: append the dated narrative section (Completed/Key
+> decisions/Outstanding) to `docs/HISTORY.md`, not here. Only touch the sections above if the change
+> affects them directly — a new/renamed module (Architecture), a changed invariant a future task needs
+> up front (Key design decisions), a new build step (Build), etc. CLAUDE.md should describe *current
+> state*, not accumulate a per-feature log; that discipline is what keeps it from re-growing back toward
+> the 380 lines it hit before the 2026-08-05 trim (PR #63).
 
 ## Architecture
 
