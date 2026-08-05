@@ -361,3 +361,19 @@ Implements issue #48 — adds a Web App Manifest and a Workbox-generated service
 - **`registerType: 'autoUpdate'`** — the SW updates itself and takes over on the next navigation without a manual "new version available" prompt; appropriate for a hobby project with no need for users to control update timing.
 
 **Outstanding / next:** none for this issue.
+
+## Backfilled version tags/releases (2026-08-05)
+
+`1.0.0` was tagged/released after PR #6 (2026-05-02, auto-generated notes via `gh release create --generate-notes`), and `package.json` was bumped to `2.0.0` at the login feature (PR #28), but no tag/release was ever cut for `2.0.0` and nothing further since — the practice was started, then dropped.
+
+**Completed:**
+
+- Backfilled 17 tags/releases (`1.1.0` through `2.8.1`) onto their actual historical merge commits, each via `gh release create <tag> --target <sha> --generate-notes --notes-start-tag <previous>` — same auto-generated-notes style as the existing `1.0.0` release, not a hand-written changelog.
+- Bumped `package.json` to `2.8.1` to match `main`'s current tip.
+
+**Key decisions:**
+
+- **No `CHANGELOG.md` file** — GitHub's `--generate-notes` (from merged PR titles) already gives a per-version changelog for free, matching the `1.0.0` precedent; this file's own dated sections already serve as the exhaustive engineering log. A third, hand-maintained file would just be one more place to keep in sync.
+- **SemVer via branch-prefix convention** — `feat/*` branches bump minor, `fix/*`/`chore/*`/`test/*` bump patch; the existing `1.0.0`→`2.0.0` boundary (login feature) was kept as-is rather than re-litigated.
+- **Grouped by merge, not by issue** — a PR that closes multiple sub-issues in one merge (e.g. PR #24's Firebase puzzle-data cluster) gets one version, matching this file's own dated section headers, which already group work the same way.
+- **Going forward**: cut a tag/release at each meaningful merge into `main` (not necessarily every single one — small same-day follow-ups can still fold into the next bump, as several did in the backfill above), rather than letting it lapse again.
