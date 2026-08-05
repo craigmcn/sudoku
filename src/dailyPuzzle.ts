@@ -80,7 +80,15 @@ function loadPersistedCache(): Record<string, string> {
   if (persistedCache) return persistedCache;
   try {
     const raw = localStorage.getItem(PERSISTED_CACHE_KEY);
-    persistedCache = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
+    // JSON.parse succeeds without throwing on non-object values like the
+    // literal string 'null' or a bare array — trusting those as
+    // Record<string, string> would crash the very next `persisted[key]`
+    // access, so fall back to {} for anything that isn't a plain object.
+    persistedCache =
+      parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, string>)
+        : {};
   } catch (err) {
     console.warn('Failed to read daily puzzle id cache:', err);
     persistedCache = {};

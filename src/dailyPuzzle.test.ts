@@ -159,6 +159,23 @@ describe('dailyPuzzleId', () => {
     const cache = JSON.parse(raw!) as Record<string, string>;
     expect(cache['2026-07-21:easy']).toBe(id);
   });
+
+  it('falls back to an empty cache rather than throwing when localStorage holds corrupted JSON', async () => {
+    // The literal string 'null' is valid JSON — JSON.parse succeeds without
+    // throwing and returns `null`, which would previously crash the very
+    // next `persisted[key]` access if trusted as-is.
+    localStorage.setItem('sudoku-daily-puzzle-id-cache-v1', 'null');
+    // Force a fresh module instance so loadPersistedCache re-reads
+    // localStorage instead of returning an already-populated in-memory cache
+    // from an earlier test in this file.
+    vi.resetModules();
+    const { dailyPuzzleId, generateDailyPuzzle } = await import('./dailyPuzzle');
+    const { hashSolution } = await import('./puzzleId');
+
+    expect(() => dailyPuzzleId('2026-07-22', 'easy')).not.toThrow();
+    const { solution } = generateDailyPuzzle('2026-07-22', 'easy');
+    expect(dailyPuzzleId('2026-07-22', 'easy')).toBe(hashSolution(solution));
+  });
 });
 
 describe('cacheDailyPuzzles', () => {
