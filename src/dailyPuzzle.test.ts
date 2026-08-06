@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Difficulty } from './generator';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Difficulty, generatePuzzle as generatePuzzleType } from './generator';
 
 const mocks = vi.hoisted(() => ({
   doc: vi.fn(() => ({ __ref: true })),
@@ -11,6 +11,11 @@ const mocks = vi.hoisted(() => ({
     return Promise.resolve();
   }),
   requireDb: vi.fn(() => ({ __db: true })),
+  // Defaults to the real generator (assigned below once importOriginal
+  // resolves) so every describe block except cacheDailyPuzzles exercises
+  // actual puzzle generation; only that block overrides the implementation.
+  generatePuzzle: vi.fn() as unknown as typeof generatePuzzleType,
+  actualGeneratePuzzle: undefined as unknown as typeof generatePuzzleType,
 }));
 
 vi.mock('firebase/firestore', () => ({
@@ -27,6 +32,19 @@ vi.mock('./puzzleDoc', () => ({
   ensurePuzzleDoc: mocks.ensurePuzzleDoc,
   requireDb: mocks.requireDb,
 }));
+
+// vi.mock (unlike vi.spyOn on a statically-imported namespace) keeps
+// intercepting generatePuzzle even after vi.resetModules() re-instantiates
+// './generator' — the "falls back to an empty cache..." test below does
+// exactly that, which would otherwise silently detach a spyOn-based mock.
+vi.mock('./generator', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./generator')>();
+  mocks.actualGeneratePuzzle = actual.generatePuzzle;
+  (mocks.generatePuzzle as ReturnType<typeof vi.fn>).mockImplementation(
+    actual.generatePuzzle,
+  );
+  return { ...actual, generatePuzzle: mocks.generatePuzzle };
+});
 
 // happy-dom's Window doesn't implement localStorage out of the box (see
 // auth.test.ts) — stub it with a small in-memory Storage.
@@ -179,6 +197,32 @@ describe('dailyPuzzleId', () => {
 });
 
 describe('cacheDailyPuzzles', () => {
+  // cacheDailyPuzzles's own logic (the Firestore-write orchestration under
+  // test here) doesn't care about real puzzle content, only that each
+  // difficulty's generated board is distinct and stable per seed — so the
+  // real backtracking generator (~130ms/call, ×4 difficulties/test, slow
+  // enough on CI hardware to sit close to vitest's 5s default timeout, see
+  // #61) is swapped for a cheap deterministic stand-in scoped to just this
+  // describe block; other describe blocks below still exercise the real
+  // generator.
+  beforeEach(() => {
+    (mocks.generatePuzzle as ReturnType<typeof vi.fn>).mockImplementation(
+      (_difficulty: Difficulty, seed = 0) => {
+        const value = (seed % 9) + 1;
+        const board = Array.from({ length: 9 }, (_, r) =>
+          Array.from({ length: 9 }, (_, c) => ((value + r + c) % 9) + 1),
+        );
+        return { puzzle: board, solution: board };
+      },
+    );
+  });
+
+  afterEach(() => {
+    (mocks.generatePuzzle as ReturnType<typeof vi.fn>).mockImplementation(
+      mocks.actualGeneratePuzzle,
+    );
+  });
+
   it('ensures a puzzle doc for all four difficulties, marked isDaily for the date', async () => {
     mocks.getDoc.mockResolvedValue({ exists: () => false });
 
