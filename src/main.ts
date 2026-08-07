@@ -354,6 +354,7 @@ async function startNewGame(): Promise<void> {
   stopTimer();
   overlayEl.classList.add('hidden');
   pauseOverlayEl.classList.add('hidden');
+  closeAllOverlays();
   loadingEl.classList.remove('hidden');
 
   // Yield to browser so loading UI renders before sync generation work
@@ -886,6 +887,25 @@ function closeCalendarOverlay(): void {
   calendarOverlay.classList.add('hidden');
 }
 
+// Checked by handleKeydown to block keyboard input while one of these is
+// open (pointer input is already blocked by each overlay's own stacking).
+// Deliberately excludes pauseOverlayEl so P still toggles pause/resume.
+function isAnyOverlayOpen(): boolean {
+  return (
+    !statsOverlay.classList.contains('hidden') ||
+    !calendarOverlay.classList.contains('hidden') ||
+    !signInOverlay.classList.contains('hidden') ||
+    !resetOverlay.classList.contains('hidden')
+  );
+}
+
+function closeAllOverlays(): void {
+  closeStatsOverlay();
+  closeCalendarOverlay();
+  closeSignInOverlay();
+  closeResetOverlay();
+}
+
 function handleCalendarNav(delta: number): void {
   const requestId = ++calendarRequestId;
   const { year, month } = shiftMonth(calendarYear, calendarMonth, delta);
@@ -950,6 +970,7 @@ function handlePauseToggle(): void {
 
 function handleKeydown(e: KeyboardEvent): void {
   if (!state || state.solved) return;
+  if (isAnyOverlayOpen()) return;
 
   if (e.key === 'p' || e.key === 'P') {
     handlePauseToggle();
