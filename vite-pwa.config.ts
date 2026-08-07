@@ -15,12 +15,9 @@ export function pwaPlugin(): ReturnType<typeof VitePWA> {
       description:
         'A browser-based Sudoku game with four difficulty levels, pencil marks, undo, hints, and a timer.',
       theme_color: '#005b99',
-      // The manifest spec has no prefers-color-scheme-aware background_color,
-      // so a cold PWA launch always shows one static splash color regardless
-      // of OS theme (#51). Matching the app's own dark-mode --bg (#000, see
-      // public/styles.css) makes dark-mode launches near-seamless; the
-      // resulting flash for light-mode users is dark-on-white rather than
-      // white-on-dark, the less jarring of the two possible mismatches.
+      // No prefers-color-scheme support in the manifest spec (#51), so this
+      // matches dark mode's --bg (#000) — a dark flash on light-mode launch
+      // beats a white flash on dark-mode launch.
       background_color: '#001726',
       display: 'standalone',
       start_url: '.',
