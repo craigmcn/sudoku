@@ -15,7 +15,10 @@ export function pwaPlugin(): ReturnType<typeof VitePWA> {
       description:
         'A browser-based Sudoku game with four difficulty levels, pencil marks, undo, hints, and a timer.',
       theme_color: '#005b99',
-      background_color: '#ffffff',
+      // No prefers-color-scheme support in the manifest spec (#51), so this
+      // matches dark mode's --bg (#000) — a dark flash on light-mode launch
+      // beats a white flash on dark-mode launch.
+      background_color: '#001726',
       display: 'standalone',
       start_url: '.',
       scope: '.',
