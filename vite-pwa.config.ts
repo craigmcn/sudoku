@@ -9,7 +9,6 @@ import { VitePWA, type VitePWAOptions } from 'vite-plugin-pwa'
 export function pwaPlugin(): ReturnType<typeof VitePWA> {
   const options: Partial<VitePWAOptions> = {
     registerType: 'autoUpdate',
-    includeAssets: ['favicon.ico', 'icons/apple-touch-icon.png'],
     manifest: {
       name: 'Sudoku',
       short_name: 'Sudoku',
