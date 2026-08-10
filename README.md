@@ -43,3 +43,7 @@ yarn test:run      # Vitest single pass
 yarn test:coverage # Vitest with v8 coverage report
 yarn test:e2e      # Playwright e2e tests (starts its own dev server)
 ```
+
+### Contributing
+
+New to this codebase? Start with [docs/ONBOARDING.md](docs/ONBOARDING.md) — a plain-English walkthrough of how the game is structured, aimed at junior/intermediate developers. `CLAUDE.md` is the terser current-state reference once you're up to speed.
