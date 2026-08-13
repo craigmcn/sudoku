@@ -7,6 +7,14 @@
   <meta name="theme-color" content="#005b99" />
   <title>Sudoku</title>
 
+  <!-- iOS's support for the Web App Manifest's display:standalone is
+       inconsistent across versions; these legacy Apple meta tags are the
+       more reliable way to get a true standalone (chrome-less) launch with
+       its own persistent storage/cache when added to the home screen. -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Sudoku" />
+
   <link rel="icon" href="favicon.ico" sizes="any" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 
