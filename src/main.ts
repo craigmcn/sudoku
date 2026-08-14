@@ -348,6 +348,17 @@ function startTimerIfJustStarted(wasStarted: boolean): void {
 
 // ── Game flow ─────────────────────────────────────────────────────────────────
 
+// Guards actions that discard the current game (New Game). A game only
+// counts as "in progress" once the timer has started (first digit entered)
+// and isn't already solved — an untouched or completed board has nothing
+// worth confirming.
+function confirmDiscardInProgressGame(): boolean {
+  if (!state || !state.started || state.solved) return true;
+  return window.confirm(
+    'Starting a new game will discard your current progress. Continue?',
+  );
+}
+
 async function startNewGame(): Promise<void> {
   const myGeneration = ++gameGeneration;
 
@@ -425,12 +436,15 @@ function setActiveDiffButton(target: Difficulty): void {
 // every player gets the identical puzzle for that date. `dailyButton` is the
 // nav button that should show as active; a calendar-day click passes its own
 // button element, so this comparison naturally evaluates false for both
-// #btnDaily and #btnDailyRandom, correctly clearing both.
+// #btnDaily and #btnDailyRandom, correctly clearing both. Shared by all three
+// callers (#btnDaily, #btnDailyRandom, a calendar-day click), so the discard
+// confirmation lives here once rather than at each call site.
 function startDailyGame(
   targetDifficulty: Difficulty,
   date: string,
   dailyButton: HTMLElement,
 ): void {
+  if (!confirmDiscardInProgressGame()) return;
   difficulty = targetDifficulty;
   activeSeed = dailySeed(date, targetDifficulty);
   setActiveDiffButton(targetDifficulty);
@@ -1044,6 +1058,7 @@ function init(): void {
   // leaving daily mode if it was active.
   document.querySelectorAll('.diff-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
+      if (!confirmDiscardInProgressGame()) return;
       const target = (btn as HTMLElement).dataset.diff as Difficulty;
       setActiveDiffButton(target);
       btnDaily.classList.remove('active');
@@ -1065,8 +1080,11 @@ function init(): void {
   });
 
   // New Game / Play Again always start a fresh random puzzle, matching
-  // pre-daily-puzzle behavior, even if a daily puzzle was active.
+  // pre-daily-puzzle behavior, even if a daily puzzle was active. New Game
+  // can discard an unsolved in-progress game, so confirm first — Play Again
+  // only fires from the victory overlay, where the game is already solved.
   btnNewGame.addEventListener('click', () => {
+    if (!confirmDiscardInProgressGame()) return;
     btnDaily.classList.remove('active');
     btnDailyRandom.classList.remove('active');
     activeSeed = undefined;
