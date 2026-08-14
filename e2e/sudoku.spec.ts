@@ -123,12 +123,28 @@ test('new game clears progress and resets the timer and pause state', async ({ p
   await page.locator('#btnHint').click()
   await expect(page.locator('#btnPause')).toBeEnabled()
 
+  page.once('dialog', (dialog) => dialog.accept())
   await page.locator('#btnNewGame').click()
   await expect(page.locator('#loading')).toHaveClass(/hidden/)
 
   await expect(page.locator('#timer')).toHaveText('00:00')
   await expect(page.locator('#btnPause')).toBeDisabled()
   await expect(page.locator('.cell')).toHaveCount(81)
+})
+
+test('new game confirmation can be canceled to keep the in-progress game', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('#loading')).toHaveClass(/hidden/)
+
+  await page.locator('.cell:not(.given)').first().click()
+  await page.locator('#btnHint').click()
+  await expect(page.locator('#btnPause')).toBeEnabled()
+
+  page.once('dialog', (dialog) => dialog.dismiss())
+  await page.locator('#btnNewGame').click()
+
+  // Canceling the confirm leaves the in-progress game untouched.
+  await expect(page.locator('#btnPause')).toBeEnabled()
 })
 
 test('calendar dates before MIN_CALENDAR_DATE are not selectable', async ({ page }) => {

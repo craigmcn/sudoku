@@ -348,6 +348,17 @@ function startTimerIfJustStarted(wasStarted: boolean): void {
 
 // ── Game flow ─────────────────────────────────────────────────────────────────
 
+// Guards actions that discard the current game (New Game). A game only
+// counts as "in progress" once the timer has started (first digit entered)
+// and isn't already solved — an untouched or completed board has nothing
+// worth confirming.
+function confirmDiscardInProgressGame(): boolean {
+  if (!state || !state.started || state.solved) return true;
+  return window.confirm(
+    'Starting a new game will discard your current progress. Continue?',
+  );
+}
+
 async function startNewGame(): Promise<void> {
   const myGeneration = ++gameGeneration;
 
@@ -1065,8 +1076,11 @@ function init(): void {
   });
 
   // New Game / Play Again always start a fresh random puzzle, matching
-  // pre-daily-puzzle behavior, even if a daily puzzle was active.
+  // pre-daily-puzzle behavior, even if a daily puzzle was active. New Game
+  // can discard an unsolved in-progress game, so confirm first — Play Again
+  // only fires from the victory overlay, where the game is already solved.
   btnNewGame.addEventListener('click', () => {
+    if (!confirmDiscardInProgressGame()) return;
     btnDaily.classList.remove('active');
     btnDailyRandom.classList.remove('active');
     activeSeed = undefined;
