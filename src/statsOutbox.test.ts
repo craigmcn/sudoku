@@ -162,6 +162,42 @@ describe('statsOutbox', () => {
     expect(readOutbox()).toEqual([]);
   });
 
+  it('sends an entry queued while a flush is already in flight', async () => {
+    setOnline(true);
+    let releaseStart!: () => void;
+    mocks.recordPuzzleStart.mockReturnValueOnce(
+      new Promise<void>((resolve) => (releaseStart = resolve)),
+    );
+    queueStat({ kind: 'start', puzzleId: 'p1', difficulty: 'easy', puzzle });
+    const inFlight = flushStatsOutbox();
+    queueStat({ kind: 'completion', puzzleId: 'p1', elapsedMs: 1000 });
+    releaseStart();
+    await inFlight;
+
+    expect(mocks.recordPuzzleCompletion).toHaveBeenCalledWith('p1', 1000);
+    expect(readOutbox()).toEqual([]);
+  });
+
+  it('skips flushing while another tab holds the outbox lock', async () => {
+    setOnline(false);
+    queueGame('p1');
+    setOnline(true);
+    const request = vi.fn(
+      (_name: string, _opts: object, cb: (lock: null) => unknown) =>
+        Promise.resolve(cb(null)),
+    );
+    vi.stubGlobal('navigator', {
+      onLine: true,
+      locks: { request },
+    });
+    await flushStatsOutbox();
+    vi.unstubAllGlobals();
+
+    expect(request).toHaveBeenCalled();
+    expect(mocks.recordPuzzleStart).not.toHaveBeenCalled();
+    expect(readOutbox()).toHaveLength(3);
+  });
+
   it('queues nothing when Firebase is not configured', () => {
     mocks.db = undefined;
     queueGame('p1');

@@ -111,34 +111,55 @@ async function send(entry: PendingStat): Promise<void> {
 }
 
 let flushing: Promise<void> | null = null;
+// Set when a flush is requested mid-flush, so an entry queued just as the
+// running flush finishes still goes out now rather than at the next reload.
+let flushRequested = false;
+
+// Always takes the current head rather than iterating a snapshot, so entries
+// queued while a send is in flight are picked up by this same pass.
+async function drainOutbox(): Promise<void> {
+  for (let entry = readOutbox()[0]; entry; entry = readOutbox()[0]) {
+    try {
+      await send(entry);
+    } catch (err) {
+      if (!isPermanentFailure(err)) {
+        console.warn('Stats sync paused; will retry:', err);
+        return;
+      }
+      console.warn('Dropping stat rejected by Firestore:', err);
+    }
+    const sentId = entry.id;
+    writeOutbox(readOutbox().filter((e) => e.id !== sentId));
+  }
+}
+
+// The outbox is shared by every open tab, and its counter increments aren't
+// idempotent, so a Web Lock keeps two tabs from sending the same entries.
+// ifAvailable: a tab that finds the lock held skips, since the holder drains.
+async function withOutboxLock(fn: () => Promise<void>): Promise<void> {
+  if (typeof navigator === 'undefined' || !navigator.locks) return fn();
+  await navigator.locks.request(STORAGE_KEY, { ifAvailable: true }, (lock) =>
+    lock ? fn() : undefined,
+  );
+}
 
 // Sends queued stats oldest-first, stopping at the first transient failure
 // so a completion never overtakes the start that creates its puzzle doc.
 // Skipped while the browser reports offline: without Firestore persistence,
 // an offline write's promise just hangs until reconnect rather than failing.
 export function flushStatsOutbox(): Promise<void> {
-  if (flushing) return flushing;
+  if (flushing) {
+    flushRequested = true;
+    return flushing;
+  }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return Promise.resolve();
   }
 
-  flushing = (async () => {
-    for (const entry of readOutbox()) {
-      try {
-        await send(entry);
-      } catch (err) {
-        if (!isPermanentFailure(err)) {
-          console.warn('Stats sync paused; will retry:', err);
-          return;
-        }
-        console.warn('Dropping stat rejected by Firestore:', err);
-      }
-      // Re-read rather than reuse the snapshot: queueStat may have appended
-      // new entries while this send was in flight.
-      writeOutbox(readOutbox().filter((e) => e.id !== entry.id));
-    }
-  })().finally(() => {
+  flushRequested = false;
+  flushing = withOutboxLock(drainOutbox).finally(() => {
     flushing = null;
+    if (flushRequested) void flushStatsOutbox();
   });
   return flushing;
 }
