@@ -20,7 +20,13 @@ if (swFiles.length === 0) {
 
 // Workbox aborts the whole install if any precache URL 404s, so a nested
 // sudoku/ entry here silently disables offline support on the /sudoku/ copy.
-const nested = readFileSync(join(SRC_DIR, 'sw.js'), 'utf8').match(/url:"sudoku\/[^"]*"/g)
+// The index.html check makes a Workbox output-format change fail loudly
+// instead of letting the nested-path check quietly match nothing.
+const swSource = readFileSync(join(SRC_DIR, 'sw.js'), 'utf8')
+if (!/url:\s*["']index\.html["']/.test(swSource)) {
+  throw new Error('sw.js precache manifest format not recognised; update this check')
+}
+const nested = swSource.match(/url:\s*["']sudoku\/[^"']*["']/g)
 if (nested) {
   throw new Error(`sw.js precaches nested sudoku/ paths: ${nested.join(', ')}`)
 }
