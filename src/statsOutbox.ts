@@ -41,7 +41,13 @@ type NewPendingStat = DistributiveOmit<PendingStat, 'id'>;
 export function readOutbox(): PendingStat[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as PendingStat[]) : [];
+    if (!raw) return [];
+    // Anything but an array would make callers' .filter/[0] throw; the next
+    // write simply replaces it.
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as PendingStat[];
+    console.warn('Ignoring malformed stats outbox:', parsed);
+    return [];
   } catch (err) {
     console.warn('Failed to read stats outbox:', err);
     return [];

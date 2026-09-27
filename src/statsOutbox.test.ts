@@ -216,4 +216,13 @@ describe('statsOutbox', () => {
     localStorage.setItem('sudoku-stats-outbox', '{nope');
     expect(readOutbox()).toEqual([]);
   });
+
+  it.each(['{}', '"x"', '42'])(
+    'treats parseable non-array storage (%s) as an empty queue',
+    (stored) => {
+      localStorage.setItem('sudoku-stats-outbox', stored);
+      expect(readOutbox()).toEqual([]);
+      expect(pendingCompletionCount()).toBe(0);
+    },
+  );
 });
