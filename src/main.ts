@@ -15,13 +15,12 @@ import {
   getConflicts,
   type ResetScope,
 } from './game';
+import { fetchUserPlays, type UserPlay } from './stats';
 import {
-  fetchUserPlays,
-  recordPuzzleCompletion,
-  recordPuzzleStart,
-  recordUserPlay,
-  type UserPlay,
-} from './stats';
+  flushStatsOutbox,
+  pendingCompletionCount,
+  queueStat,
+} from './statsOutbox';
 import {
   formatDifficultyLabel,
   formatElapsed,
@@ -382,14 +381,12 @@ async function startNewGame(): Promise<void> {
   // Timer stays idle until the first cell is filled — see handleNumInput
   render();
 
-  recordPuzzleStart(
-    state.puzzleId,
-    state.difficulty,
-    state.puzzle,
-    state.puzzleId,
-  ).catch((err: unknown) =>
-    console.warn('Failed to record puzzle start:', err),
-  );
+  queueStat({
+    kind: 'start',
+    puzzleId: state.puzzleId,
+    difficulty: state.difficulty,
+    puzzle: state.puzzle,
+  });
 }
 
 // Rehydrates a saved in-progress game (see src/persistedGame.ts) instead of
@@ -470,16 +467,18 @@ function handleVictory(): void {
 
   if (!completionRecorded) {
     completionRecorded = true;
-    recordPuzzleCompletion(state!.puzzleId, elapsed * 1000).catch(
-      (err: unknown) =>
-        console.warn('Failed to record puzzle completion:', err),
-    );
-    recordUserPlay(
-      state!.puzzleId,
-      state!.difficulty,
-      state!.mistakes,
-      elapsed * 1000,
-    ).catch((err: unknown) => console.warn('Failed to record user play:', err));
+    queueStat({
+      kind: 'completion',
+      puzzleId: state!.puzzleId,
+      elapsedMs: elapsed * 1000,
+    });
+    queueStat({
+      kind: 'play',
+      puzzleId: state!.puzzleId,
+      difficulty: state!.difficulty,
+      mistakes: state!.mistakes,
+      elapsedMs: elapsed * 1000,
+    });
   }
 }
 
@@ -712,7 +711,13 @@ async function openStatsOverlay(): Promise<void> {
     renderStatsData(plays);
   } catch (err) {
     if (requestId !== statsRequestId) return;
-    renderStatsMessage('Stats unavailable right now.', 'stats-error');
+    const pending = pendingCompletionCount();
+    renderStatsMessage(
+      pending > 0
+        ? `Stats unavailable right now. ${pending} completed puzzle${pending !== 1 ? 's' : ''} will sync when you're back online.`
+        : 'Stats unavailable right now.',
+      'stats-error',
+    );
     console.warn('Failed to load stats:', err);
   }
 }
@@ -1201,6 +1206,11 @@ function init(): void {
   completeEmailLinkSignInIfPresent().catch((err: unknown) =>
     console.warn('Failed to complete email-link sign-in:', err),
   );
+
+  // Stats queued while offline (or from a session that closed before they
+  // synced) go out at boot and whenever connectivity returns.
+  window.addEventListener('online', () => void flushStatsOutbox());
+  void flushStatsOutbox();
 
   if (!tryRestoreGame()) startNewGame();
 }
