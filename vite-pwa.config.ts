@@ -6,7 +6,9 @@ import { VitePWA, type VitePWAOptions } from 'vite-plugin-pwa'
 // every generated URL relative, which is what makes the same manifest work
 // whether the app is served from a domain root (Netlify) or a /sudoku/
 // subdirectory (GitHub Pages).
-export function pwaPlugin(): ReturnType<typeof VitePWA> {
+export function pwaPlugin(
+  { globIgnores }: { globIgnores?: string[] } = {},
+): ReturnType<typeof VitePWA> {
   const options: Partial<VitePWAOptions> = {
     registerType: 'autoUpdate',
     manifest: {
@@ -35,6 +37,7 @@ export function pwaPlugin(): ReturnType<typeof VitePWA> {
     },
     workbox: {
       globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+      ...(globIgnores ? { globIgnores } : {}),
       // The albertcss stylesheet (which itself @imports the Outfit font from
       // Google Fonts) and the Font Awesome kit script are loaded from CDNs
       // (see index.html) and drive most of this app's visual styling —
