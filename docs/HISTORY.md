@@ -334,3 +334,16 @@ Implements issue #48 — adds a Web App Manifest and a Workbox-generated service
 - **SemVer via branch-prefix convention** — `feat/*` branches bump minor, `fix/*`/`chore/*`/`test/*` bump patch; the existing `1.0.0`→`2.0.0` boundary (login feature) was kept as-is rather than re-litigated.
 - **Grouped by merge, not by issue** — a PR that closes multiple sub-issues in one merge (e.g. PR #24's Firebase puzzle-data cluster) gets one version, matching this file's own dated section headers, which already group work the same way.
 - **Going forward**: cut a tag/release at each meaningful merge into `main` (not necessarily every single one — small same-day follow-ups can still fold into the next bump, as several did in the backfill above), rather than letting it lapse again.
+
+## Offline stats sync (2026-09-27)
+
+Puzzles were already fully playable offline once the service worker installed (see the preceding SW-install fix), but any stats from an offline session were lost: `ensurePuzzleDoc`'s `runTransaction` fails outright offline (transactions are never queued), so the puzzle doc was never created and the later completion `updateDoc` was rejected when it reached the server.
+
+### Key decisions
+
+- **An explicit `localStorage` outbox (`src/statsOutbox.ts`), not Firestore's persistent cache.** Persistence would queue plain writes in IndexedDB, but not the create-if-missing transaction, and mixing its own write queue with a retry layer risks double-sending counter increments if a connection drops mid-write. A single ordered queue that survives reloads is easier to reason about and unit-test without Firestore.
+- **All stats go through the outbox, online or not** — `main.ts` never calls `record*` directly, so there's one code path. Flushed at boot, on `online`, and after each `queueStat`; skipped while `navigator.onLine === false`.
+- **At-least-once, not exactly-once.** A write the server commits but whose ack is lost (tab closed mid-flight) is re-sent next boot, bumping a counter twice. Rare and harmless at this scale; `play` entries are idempotent anyway (`setDoc` overwrite).
+- **`completedAt` is the sync time.** Rules require `completedAt == request.time` to stop backdating; recording the true solve time would need a new client-supplied field plus a rules change. Accepted — only affects "Recent games" ordering/date for offline solves.
+- **`fetchUserPlays` switched to `getDocsFromServer`.** Found during live verification: offline, plain `getDocs` resolved with an empty memory cache, so the Stats view claimed "No completed puzzles yet". Server-only makes offline an error, which the Stats view now reports along with the number of completions waiting to sync; the calendar already degraded to "no ticks" on error.
+- Verified end-to-end against the real `sudoku-craigmcn` project with a scratch Playwright script: go offline mid-session, solve an easy puzzle via hints (outbox holds `start`/`completion`/`play`, Stats shows "1 completed puzzle will sync…"), reconnect (outbox drains with no rejections, Stats shows the solve).

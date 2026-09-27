@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   signInAnonymously: vi.fn(() => Promise.resolve()),
   collection: vi.fn(() => ({ __collection: true })),
   doc: vi.fn(() => ({ __ref: true })),
-  getDocs: vi.fn(),
+  getDocsFromServer: vi.fn(),
   increment: vi.fn((n: number) => ({ __increment: n })),
   orderBy: vi.fn((field: string, direction: string) => ({
     __orderBy: [field, direction],
@@ -28,7 +28,7 @@ vi.mock('firebase/auth', () => ({
 vi.mock('firebase/firestore', () => ({
   collection: mocks.collection,
   doc: mocks.doc,
-  getDocs: mocks.getDocs,
+  getDocsFromServer: mocks.getDocsFromServer,
   increment: mocks.increment,
   orderBy: mocks.orderBy,
   query: mocks.query,
@@ -262,7 +262,7 @@ describe('fetchUserPlays', () => {
   }
 
   it('queries users/{uid}/plays ordered by completedAt descending', async () => {
-    mocks.getDocs.mockResolvedValue({ docs: [] });
+    mocks.getDocsFromServer.mockResolvedValue({ docs: [] });
 
     const { fetchUserPlays } = await import('./stats');
     await fetchUserPlays();
@@ -278,7 +278,7 @@ describe('fetchUserPlays', () => {
 
   it('maps each doc to a UserPlay, converting the Timestamp to a Date', async () => {
     const completedAt = new Date('2026-07-21T12:00:00Z');
-    mocks.getDocs.mockResolvedValue({
+    mocks.getDocsFromServer.mockResolvedValue({
       docs: [
         {
           id: 'puzzle-1',
@@ -307,7 +307,7 @@ describe('fetchUserPlays', () => {
   });
 
   it('falls back to a null completedAt when the field is missing', async () => {
-    mocks.getDocs.mockResolvedValue({
+    mocks.getDocsFromServer.mockResolvedValue({
       docs: [
         {
           id: 'puzzle-1',
@@ -335,6 +335,6 @@ describe('fetchUserPlays', () => {
       'Firebase Firestore is not configured',
     );
 
-    expect(mocks.getDocs).not.toHaveBeenCalled();
+    expect(mocks.getDocsFromServer).not.toHaveBeenCalled();
   });
 });

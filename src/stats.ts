@@ -6,7 +6,7 @@ import {
 import {
   collection,
   doc,
-  getDocs,
+  getDocsFromServer,
   increment,
   orderBy,
   query,
@@ -148,7 +148,9 @@ export async function fetchUserPlays(): Promise<UserPlay[]> {
     collection(requireDb(), 'users', user.uid, 'plays'),
     orderBy('completedAt', 'desc'),
   );
-  const snap = await getDocs(q);
+  // Server-only: without persistence, an offline getDocs() resolves with an
+  // empty cache, which the stats view would show as "no completed puzzles".
+  const snap = await getDocsFromServer(q);
   return snap.docs.map((d) => {
     const data = d.data() as {
       difficulty: Difficulty;
