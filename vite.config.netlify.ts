@@ -3,7 +3,10 @@ import { pwaPlugin } from './vite-pwa.config'
 
 export default defineConfig({
   base: './',
-  plugins: [pwaPlugin()],
+  // The precache manifest must only list paths relative to its own directory:
+  // the copied netlify/sudoku/sw.js would otherwise request sudoku/sudoku/*,
+  // 404, and abort the SW install — breaking offline for the live /sudoku/ site.
+  plugins: [pwaPlugin({ globIgnores: ['sudoku/**'] })],
   build: {
     // vite-plugin-pwa's generateSW writes sw.js/workbox-*.js straight to
     // build.outDir via fs, not through rollupOptions.output — without this,

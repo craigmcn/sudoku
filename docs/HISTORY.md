@@ -334,3 +334,14 @@ Implements issue #48 — adds a Web App Manifest and a Workbox-generated service
 - **SemVer via branch-prefix convention** — `feat/*` branches bump minor, `fix/*`/`chore/*`/`test/*` bump patch; the existing `1.0.0`→`2.0.0` boundary (login feature) was kept as-is rather than re-litigated.
 - **Grouped by merge, not by issue** — a PR that closes multiple sub-issues in one merge (e.g. PR #24's Firebase puzzle-data cluster) gets one version, matching this file's own dated section headers, which already group work the same way.
 - **Going forward**: cut a tag/release at each meaningful merge into `main` (not necessarily every single one — small same-day follow-ups can still fold into the next bump, as several did in the backfill above), rather than letting it lapse again.
+
+## Fix: service worker never installed on the live /sudoku/ site (2026-09-27)
+
+Offline play never actually worked on the live site (`www.craigmcn.com/sudoku/`), in airplane mode or anywhere else — only a root-served build ever got a working service worker.
+
+### Key decisions
+
+- **Root cause: the copied `netlify/sudoku/sw.js` precached nested `sudoku/*` paths.** The Netlify build's `outDir` is `netlify/`, which contains the `netlify/sudoku/` copy, so Workbox's `**/*` glob picked up both trees. From the `/sudoku/` scope those entries resolve to `/sudoku/sudoku/*` → 404, and Workbox aborts the whole install on any precache failure, so the SW was discarded and every offline load hit the browser's error page. The 2026-07-31 verification passed only because it was run against a root-served build, where those paths exist.
+- **Fix: `globIgnores: ['sudoku/**']` for the Netlify build only** (`pwaPlugin()` takes it as an option; the `dist/` build keeps Workbox's default ignores). Both trees are byte-identical, so the root's manifest is correct for either location.
+- **Build guard, not an e2e test** — `scripts/copy-netlify-sw.mjs` throws if `sw.js` lists any `sudoku/` URL. Playwright e2e runs against `yarn dev`, which has no service worker, so a build-time string check is the cheapest guard that CI (`yarn build`) and deploys (`build:netlify`) both hit.
+- Verified with a scratch Playwright script serving `netlify/` and loading `/sudoku/` in a fresh context: SW registered/active at the `/sudoku/` scope, offline reload renders 81 cells and accepts input.
