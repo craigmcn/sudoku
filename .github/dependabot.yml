@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # Security updates only: limit 0 turns version updates off, and the group
+  # bundles concurrent advisories into one PR so CI runs once.
+  - package-ecosystem: npm
+    directories:
+      - '/'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: ['*']
